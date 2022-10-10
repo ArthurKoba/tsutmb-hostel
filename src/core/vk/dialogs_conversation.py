@@ -3,8 +3,8 @@ class Permissions:
 
 
 class Transits:
-    left = "@id{user_id} ({full_name}) покинул беседу!"
-    join = "@id{user_id} ({full_name}) присоединился к беседе!"
+    left = "@id{user_id} ({full_name}) покидает беседу!"
+    join = "@id{user_id} ({full_name}) присоединяется к беседе!"
 
     extended_join = """\n\n
     Рекомендуется отключить уведомления в беседе, дабы вас не беспокоили неважные сообщения. 
