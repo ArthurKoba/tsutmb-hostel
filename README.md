@@ -4,17 +4,14 @@
 
 ---
 
-## Установка
+## Установка и запуск
 
-Установка виртуального окружения и пакетов:
-```
-python3 venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-## Запуск
 
 ```
-python -m application
+bash install.sh
 ```
-**Примечание:** _предварительно необходимо активировать виртуальное окружение!!!_
+## Обновление
+
+```
+bash update.sh
+```
