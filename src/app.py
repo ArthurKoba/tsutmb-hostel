@@ -23,6 +23,7 @@ async def main(loop: AbstractEventLoop) -> None:
         access_token=group_access_token, conversation_id=conversation_id, loop=loop,
         old_conversation=old_conversation, notification_join_offset=notification_join_offset
     )
+    old_conversation.add_bot(group_conversation.bot)
     loop.create_task(group_conversation.start())
     loop.create_task(old_conversation.start())
 

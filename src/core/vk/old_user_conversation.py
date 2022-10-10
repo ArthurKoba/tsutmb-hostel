@@ -1,12 +1,12 @@
 from asyncio import AbstractEventLoop, gather
 from typing import Set
 
-from vkbottle import User
+from vkbottle import User, Bot
 from vkbottle_types.events.enums import UserEventType
 from vkbottle_types.events.user_events import RawUserEvent
 
 from core.loggers import old_conversation_logger as logger
-
+from core.vk.utils import get_random_id
 
 class UserOldConversation:
     def __init__(self, access_token: str, conversation_id: int, loop: AbstractEventLoop):
@@ -16,7 +16,10 @@ class UserOldConversation:
         self.user.on.raw_event(UserEventType.MESSAGE_NEW)(self.process_message)
         self._conversation_admins: Set[int] = set()
         self._conversation_users: Set[int] = set()
+        self.bot: Bot = None
 
+    def add_bot(self, bot: Bot) -> None:
+        self.bot = bot
     async def kick_user_from_old_conversation(self, user_id: int) -> bool:
         if user_id in self._conversation_admins:
             return logger.debug(f"Пользователь с id: {user_id} не исключен, так как он админ.")
@@ -35,13 +38,24 @@ class UserOldConversation:
 
     async def process_message(self, event: RawUserEvent):
         chat_id = event.object[3]
+        text = event.object[6]
         if chat_id != self._conversation_id_old:
             return
         user_id = int(event.object[7].get("from", 0))
         if user_id in self._conversation_admins:
             return
         message_id = event.object[1]
-        await self.delete_message(message_id=message_id, chat_id=chat_id)
+        await gather(
+            self.delete_message(message_id=message_id, chat_id=chat_id),
+            self.resend_message_to_admin(text=text, user_id=user_id)
+        )
+
+    async def resend_message_to_admin(self, text: str, user_id: int) -> None:
+        if not self.bot:
+            return
+        text = f"Пользователь @id{user_id} отправил сообщение в старую беседу: " + text
+        data = dict(peer_id=198534303, message=text, random_id=get_random_id())
+        await self.bot.api.messages.send(**data)
 
     async def delete_message(self, message_id, chat_id: int) -> bool:
         request_data = dict(message_id=message_id, peer_id=chat_id, delete_for_all=1)
