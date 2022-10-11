@@ -5,15 +5,14 @@ from vkbottle_types.events.enums import UserEventType
 from vkbottle_types.events.user_events import RawUserEvent
 
 from core.vk.vkbottle_bot_user_longpool import BotUserLongPool
-from core.vk.old_user_conversation import UserOldConversation
 from core.vk.utils import get_random_id
 from core.vk.dialogs_conversation import Dialogs as dialog
 from core.loggers import conversation_logger as logger
 
 
 class GroupConversation:
-    def __init__(self, access_token: str, conversation_id: int, old_conversation: UserOldConversation,
-                 loop: AbstractEventLoop, loop_checker_sleep_sec=30, notification_join_offset: int = 10):
+    def __init__(self, access_token: str, conversation_id: int, loop: AbstractEventLoop,
+                 loop_checker_sleep_sec=30, notification_join_offset: int = 10):
         self._loop = loop
         self._is_active_loop_checker = True
         self._loop_checker_sleep_sec = loop_checker_sleep_sec
@@ -31,8 +30,6 @@ class GroupConversation:
         self.bot = BotUserLongPool(access_token, loop=self._loop)
         self.bot.on.raw_event(UserEventType.CHAT_INFO_EDIT)(self._process_user_transit)
         self.bot.on.raw_event(UserEventType.MESSAGE_NEW)(self._process_message)
-
-        self._old_conversation = old_conversation
 
     async def get_full_name_for_user(self, user_id: int) -> str:
         if user_id < 0:
@@ -67,8 +64,6 @@ class GroupConversation:
             text += dialog.transit.extended_join
             self._notification_join_target_offset = 0
         await self.send_message(text)
-
-
 
     async def delete_message(self, message_id) -> None:
         # Добавить озможность удаления сообщения админов!
@@ -127,7 +122,6 @@ class GroupConversation:
         if event.object[1] == 6:
             logger.debug(f"Пользователь с id: {user_id} присоединился к беседе!")
             await self.send_join_user_conversation_notification(user_id=user_id, peer_id=peer_id)
-            await self._old_conversation.kick_user_from_old_conversation(user_id=user_id)
         elif event.object[1] == 7:
             logger.debug(f"Пользователь с id: {user_id} вышел из беседы!")
             await self.send_left_user_conversation_notification(user_id=user_id, peer_id=peer_id)

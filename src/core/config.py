@@ -9,7 +9,6 @@ def get_config(path: str = DEFAULT_PATH) -> configparser.ConfigParser:
     cfg_parser = configparser.ConfigParser()
     cfg_parser.add_section("Tokens")
     cfg_parser.set("Tokens", "group_access_token", "")
-    cfg_parser.set("Tokens", "user_access_token", "")
 
     cfg_parser.add_section("Paths")
     cfg_parser.set("Paths", "sheets_service_account_file_path", "../resources/service_account.json")
@@ -19,7 +18,6 @@ def get_config(path: str = DEFAULT_PATH) -> configparser.ConfigParser:
 
     cfg_parser.add_section("Conversation")
     cfg_parser.set("Conversation", "conversation_id", "2000000002")
-    cfg_parser.set("Conversation", "conversation_id_old", "2000000169")
     cfg_parser.set("Conversation", "notification_join_offset", "20")
 
     if not os.path.exists(path):
