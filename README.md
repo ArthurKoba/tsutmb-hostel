@@ -13,7 +13,7 @@ apt update && apt upgrade -y
 ```
 2. Установка необходимых библиотек.
 ```
-apit install python3 python3-venv python-is-python3
+apit install python3 python3-venv python-is-python3~~~~
 ```
 
 **Подготовка SSH ключей, для взаимодействия с проектом Github**
@@ -38,7 +38,7 @@ git init && git remote add origin git@github.com:ArthurKoba/tsutmb-hostel.git
 ```
 6. Загрузить в текущую папку содержимое `main` ветки.
 ```
-git pull origin main
+git pull origin master
 ```
 **Создание виртуального окружения, установка зависимостей, сервиса проекта.**
 ```
