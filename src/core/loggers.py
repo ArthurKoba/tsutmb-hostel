@@ -22,9 +22,12 @@ logging.getLogger("vkbottle").setLevel(logging.WARNING)
 
 main_logger = logging.getLogger("tsutmb-hostel")
 conversation_logger = logging.getLogger("conversation")
+config_logger = logging.getLogger("config")
 
+config_logger.setLevel(logging.INFO)
 
 __all__ = [
     "main_logger",
+    "config_logger",
     "conversation_logger",
 ]
