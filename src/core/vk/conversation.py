@@ -130,12 +130,15 @@ class GroupConversation:
 
     async def kick_user_conversation(self, user_id: int) -> None:
         if user_id in self._conversation_admins:
-            logger.warning(f"Пользователь с id: {user_id} не может быть исключен из беседы, так как он админ!")
+            logger.debug(f"Пользователь с id: {user_id} не может быть исключен из беседы, так как он админ!")
             return
         chat_id = self._conversation_id - 2000000000
         result = await self.bot.api.messages.remove_chat_user(member_id=user_id, chat_id=chat_id)
         if result == 1:
             logger.debug(f"Пользователь с id: {user_id} исключен. Результат: {result}")
+
+    async def _read_all_messages(self):
+        await self.bot.api.messages.mark_as_read(peer_id=self._conversation_id, mark_conversation_as_read=True)
 
     async def _load_conversation(self) -> None:
         response = await self.bot.api.messages.get_conversation_members(
@@ -151,23 +154,15 @@ class GroupConversation:
             full_name = f"{profile.first_name} {profile.last_name}"
             self._cache_full_names.update({profile.id: full_name})
 
-    async def _loop_checker(self) -> None:
-        if not self._is_active_loop_checker:
-            return
-        logger.debug("Запуск цикла обновлений.")
-        while self._is_active_loop_checker:
-            await sleep(self._loop_checker_sleep_sec)
-            await self._load_conversation()
-
     async def _load_group(self) -> None:
         response_group, response_conversation = await gather(
             self.bot.api.groups.get_by_id(),
             self.bot.api.messages.get_conversations_by_id(peer_ids=[self._conversation_id])
         )
-        logger.debug(f"Данные группы {response_group[0].name} ({response_group[0].id}) успешно загружены.")
+        logger.info(f"Данные группы {response_group[0].name} ({response_group[0].id}) успешно загружены.")
         self._group_id = response_group[0].id
         await self._load_conversation()
-        logger.debug("Беседа {} ({}) загружена! Количество админов: {}, ботов: {}, участников: {}.".format(
+        logger.info("Беседа {} ({}) загружена! Количество админов: {}, ботов: {}, участников: {}.".format(
             response_conversation.items[0].chat_settings.title,
             self._conversation_id,
             len(self._conversation_admins),
@@ -175,9 +170,19 @@ class GroupConversation:
             len(self._conversation_users),
         ))
 
+    async def _loop_checker(self) -> None:
+        if not self._is_active_loop_checker:
+            return
+        logger.debug("Запуск цикла обновлений.")
+        while self._is_active_loop_checker:
+            await sleep(self._loop_checker_sleep_sec)
+            await gather(
+                self._load_conversation(),
+                self._read_all_messages()
+            )
+
     async def start(self) -> None:
-        logger.info("Запуск менеджера беседы.")
+        logger.debug("Запуск менеджера беседы.")
         await self._load_group()
         self._loop.create_task(self._loop_checker())
-
         await self.bot.run_polling()
