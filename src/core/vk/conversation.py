@@ -61,7 +61,7 @@ class GroupConversation:
         full_name = await self.get_full_name_for_user(user_id)
         text = dialog.transit.join.format(user_id=user_id, full_name=full_name)
         if self._notification_join_target_offset > self._notification_join_offset:
-            text += dialog.transit.extended_join
+            text += "\n\n" + dialog.transit.extended_join
             self._notification_join_target_offset = 0
         await self.send_message(text)
 
@@ -94,7 +94,8 @@ class GroupConversation:
             message_id = await self.send_message(text=dialog.commands.help)
             await sleep(15)
             await self.delete_message(message_id)
-
+        elif command == "/send_join_extended_message":
+            await self.send_message(text=dialog.transit.extended_join)
         else:
             message_id = await self.send_message(text=dialog.commands.unknown)
             await sleep(5)
