@@ -13,32 +13,33 @@ apt update && apt upgrade -y
 ```
 2. Установка необходимых библиотек.
 ```
-apit install python3 python3-venv python-is-python3~~~~
+apt install python3 python3-venv python-is-python3
 ```
 
 **Подготовка SSH ключей, для взаимодействия с проектом Github**
 
 1. Сначала необходимо сгенерировать SSH публичный и приватный ключ.
 ```
-ssh-keygen -t rsa -b 4096 -C "email@example.com" -f ~/.ssh/tsutmb-hostel
+ssh-keygen -t ed25519 -C "email@example.com" -f ~/.ssh/tsutmb-hostel
 ```
 2. Содержимое публичного ключа `tsutmb-hostel.pub` необходимо установить в проекте **GitHub** в разделе _**Deploy keys**_.
 3. В файл `~/.ssh/config` необходимо вписать содержимое:
 ```
-Host github.com
-    IdentityFile ~/.ssh/tsutmb-hostel
+Host github.com-tsutmb-hostel
+                Hostname github.com
+                IdentityFile=~/.ssh/tsutmb-hostel
 ```
-4. Создать папку проекта и переместиться в неё.
+4. Перейти в директорию, куда будет установлена папка с проектом.
 ```
-mkdir tsutmb-hostel && cd tsutmb-hostel
+cd /srv/
 ```
-5. Инициализировать в папке `git` и установить путь к внешнему проекту.
+5. Клонировать проект.
 ```
-git init && git remote add origin git@github.com:ArthurKoba/tsutmb-hostel.git
+git clone git@github.com-tsutmb-hostel:ArthurKoba/tsutmb-hostel.git
 ```
-6. Загрузить в текущую папку содержимое `main` ветки.
+6. Зайти в папку с проектом.
 ```
-git pull origin master
+cd tsutmb-hostel
 ```
 **Создание виртуального окружения, установка зависимостей, сервиса проекта.**
 ```
