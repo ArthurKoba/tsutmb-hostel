@@ -9,7 +9,9 @@ class Transits:
     extended_join = "Рекомендуется отключить уведомления в беседе, дабы вас не беспокоили неважные сообщения.\n\n"
     extended_join += "Только важные сообщения будут помечаться администраторами тегом @аll.\n\n"
     extended_join += "Всем, кто недавно заселился необходимо ознакомиться с требованиями к проживающим:\n"
-    extended_join += "https://vk.com/@tsutmb_hostel_1b-requirements"
+    extended_join += "https://vk.com/@tsutmb_hostel_1b-requirements\n\n"
+    extended_join += "LanTa | Интернет в общежитии: \n"
+    extended_join += "https://vk.com/@tsutmb_hostel_1b-internet"
 
 
 class Commands:
