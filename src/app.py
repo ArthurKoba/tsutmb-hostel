@@ -1,4 +1,4 @@
-from asyncio import get_event_loop, AbstractEventLoop
+from asyncio import new_event_loop, AbstractEventLoop
 
 from core.config import get_config
 from core.loggers import main_logger
@@ -14,7 +14,8 @@ async def main(loop: AbstractEventLoop) -> None:
     notification_join_offset = configs.getint("Conversation", "notification_join_offset")
 
     group_conversation = GroupConversation(
-        access_token=group_access_token, conversation_id=conversation_id, loop=loop,
+        configs=configs,
+        loop=loop,
         notification_join_offset=notification_join_offset
     )
 
@@ -28,10 +29,10 @@ def exception_handler(loop: AbstractEventLoop, context):
 
 
 def start() -> None:
-    loop = get_event_loop()
+    loop = new_event_loop()
     loop.set_exception_handler(exception_handler)
+    loop.create_task(main(loop))
     try:
-        loop.create_task(main(loop))
         loop.run_forever()
     except KeyboardInterrupt:
         main_logger.warning("Завершение работы программы!")

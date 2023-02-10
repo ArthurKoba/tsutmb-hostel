@@ -1,5 +1,7 @@
 from asyncio import AbstractEventLoop, sleep, gather
-from typing import Optional, List, Dict, Set
+from typing import Dict, Set
+
+from configparser import ConfigParser
 
 from vkbottle_types.events.enums import UserEventType
 from vkbottle_types.events.user_events import RawUserEvent
@@ -11,13 +13,15 @@ from core.loggers import conversation_logger as logger
 
 
 class GroupConversation:
-    def __init__(self, access_token: str, conversation_id: int, loop: AbstractEventLoop,
-                 loop_checker_sleep_sec=30, notification_join_offset: int = 10):
+    notification_join_offset = 10
+
+    def __init__(self, configs: ConfigParser, loop: AbstractEventLoop,
+                 loop_checker_sleep_sec=30, notification_join_offset: int | None = None):
         self._loop = loop
         self._is_active_loop_checker = True
         self._loop_checker_sleep_sec = loop_checker_sleep_sec
 
-        self._conversation_id = conversation_id
+        self._conversation_id = configs.getint("Conversation", "conversation_id")
         self._conversation_admins: Set[int] = set()
         self._conversation_users: Set[int] = set()
         self._conversation_bots: Set[int] = set()
@@ -27,7 +31,7 @@ class GroupConversation:
         self._notification_join_offset = notification_join_offset
         self._notification_join_target_offset = notification_join_offset + 1
 
-        self.bot = BotUserLongPool(access_token, loop=self._loop)
+        self.bot = BotUserLongPool(configs.get("Tokens", "group_access_token"), loop=self._loop)
         self.bot.on.raw_event(UserEventType.CHAT_INFO_EDIT)(self._process_user_transit)
         self.bot.on.raw_event(UserEventType.MESSAGE_NEW)(self._process_message)
 
