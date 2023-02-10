@@ -1,6 +1,7 @@
 #!/bin/bash
 
-echo "Updating Project with GitHub. Project directory - `pwd`"
-source venv/bin/activate
-git pull origin main
-systemctl restart gunicorn.service
+service_filename="tsutmb-hostel.service"
+
+echo "Updating Project ($service_filename) with GitHub. Project directory - `pwd`"
+git pull origin master
+systemctl restart $service_filename

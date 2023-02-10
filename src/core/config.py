@@ -107,7 +107,6 @@ def compare_and_combine_configs(
 
 
 def get_config(
-        root_directory: str = DEFAULT_ROOT_DIRECTORY,
         directory_path: str = DEFAULT_RESOURCES_DIRECTORY_PATH,
         config_filename: str = DEFAULT_CONFIG_FILENAME
         ) -> ConfigParser:
