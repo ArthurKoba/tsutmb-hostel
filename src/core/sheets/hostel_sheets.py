@@ -2,7 +2,7 @@ from typing import Iterable
 
 from configparser import ConfigParser
 
-from core.extensions.google_sheets import GoogleSheetsApiClient
+from extensions.google_sheets import GoogleSheetsApiClient
 from core.loggers import hostel_sheets as logger
 from json import dump, loads
 

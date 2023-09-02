@@ -21,6 +21,7 @@ class UserParser:
     def parse(self, row: IndexedRow) -> User | None:
         # print(row)
         named_arguments = dict(row_index=row.index)
+        row_index = row.index + 1
         if row.data[UserRowSection.ROOM].isdigit():
             self.last_room = int(row.data[UserRowSection.ROOM])
         elif row.data[UserRowSection.ROOM]:
@@ -34,31 +35,31 @@ class UserParser:
         if row.data[UserRowSection.INSTITUTE] in Institutes:
             named_arguments.update(dict(institute=row.data[UserRowSection.INSTITUTE]))
         elif row.data[UserRowSection.INSTITUTE]:
-            logger.warning(f"Неверно указан институт в строке {row.index}: {row.data[UserRowSection.INSTITUTE]}")
+            logger.warning(f"Неверно указан институт в строке {row_index}: {row.data[UserRowSection.INSTITUTE]}")
 
         if row.data[UserRowSection.COURSE].isdigit():
             named_arguments.update(dict(course=int(row.data[UserRowSection.COURSE])))
         elif row.data[UserRowSection.COURSE]:
-            logger.warning(f"Неверно указан курс в строке {row.index}: {row.data[UserRowSection.COURSE]}")
+            logger.warning(f"Неверно указан курс в строке {row_index}: {row.data[UserRowSection.COURSE]}")
 
         if row.data[UserRowSection.EDUCATION] in TypeEducation:
             named_arguments.update(dict(type_of_education=row.data[UserRowSection.EDUCATION]))
         elif row.data[UserRowSection.EDUCATION]:
-            logger.warning(f"Неверно указан тип обучения в строке {row.index}: {row.data[UserRowSection.EDUCATION]}")
+            logger.warning(f"Неверно указан тип обучения в строке {row_index}: {row.data[UserRowSection.EDUCATION]}")
 
         named_arguments.update(dict(other_information=row.data[UserRowSection.ADDITIONAL_INFORMATION]))
 
         if self.check_vk_link(row.data[UserRowSection.VK_LINK]):
             named_arguments.update(dict(vk_link=row.data[UserRowSection.VK_LINK]))
         else:
-            logger.warning(f"Неверно указана VK ссылка в строке {row.index}: {row.data[UserRowSection.VK_LINK]}")
+            logger.warning(f"Неверно указана VK ссылка в строке {row_index}: {row.data[UserRowSection.VK_LINK]}")
 
         if row.data[UserRowSection.IN_CONVERSATION] == StatusInChat.true.value:
             named_arguments.update(dict(is_in_conversation=True))
         elif row.data[UserRowSection.IN_CONVERSATION] == StatusInChat.false.value:
             named_arguments.update(dict(is_in_conversation=False))
         else:
-            logger.warning(f"Неверно указано состояние беседы в строке {row.index}: {row.data[UserRowSection.IN_CONVERSATION]}")
+            logger.warning(f"Неверно указано состояние беседы в строке {row_index}: {row.data[UserRowSection.IN_CONVERSATION]}")
 
         user = User(**named_arguments)
         return user
@@ -77,7 +78,7 @@ def _parse_row(row: IndexedRow) -> User | None:
             # logger.debug("{}, {}".format(row.index, row.data))
 
 
-def _parse_database(rows: Rows, start_index: RowIndex = 0) -> None:
+def _parse_database(rows: Rows, start_index: RowIndex = 0) -> [User]:
     users = []
     for row_index in range(0, len(rows)):
         row = IndexedRow(row_index + start_index, rows[row_index])
@@ -85,4 +86,5 @@ def _parse_database(rows: Rows, start_index: RowIndex = 0) -> None:
         if type(result) is User:
             users.append(result)
     logger.info(f"Инициализировано {len(users)} пользователей!")
+    return users
 
