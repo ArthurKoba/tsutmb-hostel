@@ -106,6 +106,7 @@ class GroupConversation:
             await self.delete_message(message_id)
 
     async def _process_message(self, event: RawUserEvent):
+        logger.debug(f"New message: {event.object}")
         self._notification_join_target_offset += 1
         user_id = int(event.object[7].get('from', 0))
         peer_id = event.object[3]
