@@ -48,7 +48,8 @@ class BotUserLongPool(Bot):
                  state_dispenser: Optional["ABCStateDispenser"] = None,
                  error_handler: Optional["ABCErrorHandler"] = None, task_each_event: bool = True):
 
+        polling = polling or BotMessagesPooling()
+        labeler = labeler or UserLabeler()
+
         super().__init__(token, api, polling, callback, loop, loop_wrapper, router, labeler, state_dispenser,
                          error_handler, task_each_event)
-        self.labeler = labeler or UserLabeler()
-        self._polling = polling or BotMessagesPooling()
