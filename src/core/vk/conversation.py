@@ -37,7 +37,7 @@ class GroupConversation:
 
     async def get_full_name_for_user(self, user_id: int) -> str:
         if user_id < 0:
-            return logger.warning("Попытка получения полного имени для группы невозм")
+            return logger.warning("Попытка получения полного имени для группы невозможно!")
         if user_id in self._cache_full_names:
             return self._cache_full_names.get(user_id)
         user = (await self.bot.api.users.get([user_id]))[0]
