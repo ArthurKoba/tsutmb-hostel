@@ -2,7 +2,7 @@ from asyncio import new_event_loop, AbstractEventLoop, Task
 
 from core.config import get_config
 from core.loggers import main_logger
-from core.vk.conversation import GroupConversation
+from core.vk.manager import VKManager
 
 
 def exception_handler(_loop: AbstractEventLoop, context):
@@ -26,13 +26,14 @@ if __name__ == '__main__':
     conversation_id = configs.getint("Conversation", "conversation_id")
     notification_join_offset = configs.getint("Conversation", "notification_join_offset")
 
-    group_conversation = GroupConversation(
+    vk_manager = VKManager(
         configs=configs,
         loop=loop,
         notification_join_offset=notification_join_offset
     )
 
-    group_conversation_task: Task = loop.create_task(group_conversation.start())
+    loop.create_task(vk_manager.start())
+
     try:
         loop.run_forever()
     except KeyboardInterrupt:
