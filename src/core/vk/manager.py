@@ -1,13 +1,15 @@
 from asyncio import AbstractEventLoop, sleep, gather
 from typing import Dict, List, Optional
 
-from configparser import ConfigParser
 from vkbottle_types.events.enums import UserEventType
 from vkbottle_types.events.user_events import RawUserEvent
 from vkbottle.tools.dev.mini_types.user.message import MessageMin
 
+from configparser import ConfigParser
+
+from core.sheets import GoogleSheetHostel
 from core.vk.base.bot import BotUserLongPool
-from core.vk.utils import get_random_id
+from core.vk.utils import get_random_id, get_vk_ids_from_list_links
 from core.vk.dialogs_conversation import Dialogs as dialog
 from core.loggers import conversation_logger as logger
 
@@ -55,6 +57,11 @@ class DefaultVKManager:
     async def send_reply_message(self, text: str, peer_id, reply_message_id: int) -> int:
         data = dict(peer_id=peer_id, message=text, reply_to=reply_message_id, random_id=get_random_id())
         logger.debug(f"Отправка ответа на сообщение id: {reply_message_id} в чате {peer_id}. Сообщение: {text}")
+        return await self.bot.api.messages.send(**data)
+
+    async def send_private_message(self, text: str, peer_id):
+        data = dict(peer_id=peer_id, message=text, random_id=get_random_id())
+        logger.debug(f"Отправка сообщения пользователю с id {peer_id}. Сообщение: {text}")
         return await self.bot.api.messages.send(**data)
 
     async def delete_message(self, message_id) -> bool:
@@ -150,8 +157,8 @@ class DefaultVKManager:
 
 
 class VKManager(DefaultVKManager):
-    def __init__(self, configs: ConfigParser, loop: AbstractEventLoop, loop_checker_sleep_sec: int = None,
-                 notification_join_offset: int = None):
+    def __init__(self, configs: ConfigParser, loop: AbstractEventLoop, hostel_sheets: GoogleSheetHostel,
+                 loop_checker_sleep_sec: int = None, notification_join_offset: int = None):
 
         super().__init__(
             access_token=configs.get("Tokens", "group_access_token"),
@@ -162,9 +169,11 @@ class VKManager(DefaultVKManager):
         )
 
         self._global_mute = False
+        self._sheets = hostel_sheets
 
         self.bot.on.raw_event(UserEventType.CHAT_INFO_EDIT)(self._process_user_transit)
         self.bot.on.conversation_message()(self._process_conversation_message)
+        self.bot.on.private_message()(self._process_private_command)
     #     self.bot.on.private_message(FromPeerRule([198534303]))(self.test)
 
     async def _process_conversation_command(self, message: MessageMin):
@@ -222,3 +231,105 @@ class VKManager(DefaultVKManager):
             logger.debug(f"Пользователь с id: {user_id} вышел из беседы!")
             await self.send_left_user_conversation_notification(user_id=user_id)
             await self.kick_user_conversation(user_id=user_id)
+
+    async def _process_private_command(self, message: MessageMin):
+
+        if not message.text.startswith("/"):
+            return
+        cmd = message.text
+
+        if cmd == "/start":
+            return await self.send_private_message(peer_id=message.peer_id, text=dialog.commands.start)
+        elif message.peer_id not in self._conversation_admins:
+            return await self.send_private_message(peer_id=message.peer_id, text=dialog.permission.private_cmd_denied)
+
+        if cmd == "/help":
+            return await self.send_private_message(peer_id=message.peer_id, text=dialog.commands.private_help)
+
+        elif cmd == "/show_notes":
+            await self._send_notes(message)
+        elif cmd == "/show_need_kick":
+            await self._show_users_which_are_need_kick(message)
+        elif cmd == "/show_need_invite":
+            await self._show_users_which_are_need_invite(message)
+        elif cmd == "/kick_users_from_conversation":
+            await self._kick_users_which_are_not_in_db(message)
+        elif cmd == "/update_statuses":
+            await self._update_statuses_db_in_conversation(message)
+
+    async def _send_notes(self, message: MessageMin):
+        notes = await self._sheets.update_database()
+        msg = ""
+        for note in notes:
+            if len(msg) + len(note) < 4000:
+                msg += "\n" + note
+            else:
+                await self.send_private_message(peer_id=message.peer_id, text=msg)
+                msg = ""
+        if msg:
+            await self.send_private_message(peer_id=message.peer_id, text=msg)
+
+    async def _show_users_which_are_need_kick(self, message: MessageMin):
+        await self._sheets.update_database()
+        vk_links = self._sheets.get_all_vk_links()
+        db_ids = get_vk_ids_from_list_links(vk_links)
+        conversation_ids = [*self._conversation_admins, *self._conversation_users]
+        need_kick = []
+        for user_id in conversation_ids:
+            if user_id not in db_ids:
+                need_kick.append(user_id)
+        msg = ""
+        for user_id in need_kick:
+            fullname = await self.get_full_name_for_user(user_id)
+            named_link = f"@id{user_id} ({fullname})"
+            if len(msg) + len(named_link) < 4000:
+                msg += "\n" + named_link
+            else:
+                await self.send_private_message(peer_id=message.peer_id, text=msg)
+                msg = ""
+        if msg:
+            await self.send_private_message(peer_id=message.peer_id, text=msg)
+
+    async def _show_users_which_are_need_invite(self, message: MessageMin):
+        await self._sheets.update_database()
+        vk_links = self._sheets.get_all_vk_links()
+        db_ids = get_vk_ids_from_list_links(vk_links)
+        conversation_ids = [*self._conversation_admins, *self._conversation_users]
+        need_invite = []
+        for user_id in db_ids:
+            if user_id not in conversation_ids:
+                need_invite.append(user_id)
+        msg = ""
+        for user_id in need_invite:
+            fullname = await self.get_full_name_for_user(user_id)
+            named_link = f"@id{user_id} ({fullname})"
+            if len(msg) + len(named_link) < 4000:
+                msg += "\n" + named_link
+            else:
+                await self.send_private_message(peer_id=message.peer_id, text=msg)
+                msg = ""
+        if msg:
+            await self.send_private_message(peer_id=message.peer_id, text=msg)
+
+    async def _kick_users_which_are_not_in_db(self, message: MessageMin):
+        await self._sheets.update_database()
+        vk_links = self._sheets.get_all_vk_links()
+        db_ids = get_vk_ids_from_list_links(vk_links)
+        conversation_ids = [*self._conversation_admins, *self._conversation_users]
+        for user_id in conversation_ids:
+            if user_id in db_ids:
+                continue
+            await self.kick_user_conversation(user_id=user_id)
+
+    async def _update_statuses_db_in_conversation(self, message: MessageMin):
+        await self._sheets.update_database()
+        conversation_ids = [*self._conversation_admins, *self._conversation_users]
+        data = []
+        for user in self._sheets.users:
+            actual_status = user.get_vk_id() in conversation_ids
+            if actual_status != user.is_in_conversation:
+                data.append((user, actual_status))
+        await self._sheets.write_statuses_in_conversation(data)
+        await self.send_private_message(
+            peer_id=message.peer_id, text=dialog.commands.count_updated_statuses.format(count=len(data))
+        )

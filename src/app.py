@@ -2,6 +2,7 @@ from asyncio import new_event_loop, AbstractEventLoop, Task
 
 from core.config import get_config
 from core.loggers import main_logger
+from core.sheets import GoogleSheetHostel
 from core.vk.manager import VKManager
 
 
@@ -26,13 +27,17 @@ if __name__ == '__main__':
     conversation_id = configs.getint("Conversation", "conversation_id")
     notification_join_offset = configs.getint("Conversation", "notification_join_offset")
 
+    hostel_sheets = GoogleSheetHostel(configs=configs)
+
     vk_manager = VKManager(
         configs=configs,
         loop=loop,
+        hostel_sheets=hostel_sheets,
         notification_join_offset=notification_join_offset
     )
 
     loop.create_task(vk_manager.start())
+    loop.create_task(hostel_sheets.start())
 
     try:
         loop.run_forever()

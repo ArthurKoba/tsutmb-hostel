@@ -1,19 +1,16 @@
-from typing import Iterable
+from typing import Iterable, List, Text, Tuple
 
 from configparser import ConfigParser
 
 from extensions.google_sheets import GoogleSheetsApiClient
 from core.loggers import hostel_sheets as logger
-from json import dump, loads
+from json import dump, loads, dumps
 
 from core.config import DEFAULT_RESOURCES_DIRECTORY_PATH
 import os
 
-from .types import Rows
-from .parser import _parse_database
-
-
-
+from .models import Rows, User
+from .parser import UserParser
 
 
 class GoogleSheetHostel:
@@ -26,75 +23,46 @@ class GoogleSheetHostel:
         self._database_start_range = configs.getint("Sheets", "database_sheet_start_range")
         self._database_end_range = configs.getint("Sheets", "database_sheet_end_range")
 
+        self.users: List[User] = []
 
-    async def _load_database(self) -> None:
-        # ranges = [f"{self._database_sheet_name}!A{self._database_start_range}:H{self._database_end_range}"]
-        # values = await self._api.batch_get_values(ranges)
+    async def update_database(self) -> List[Text]:
+        logger.debug("Обновление базы данных.")
+        ranges = [
+            f"{self._database_sheet_name}!A{i}:H{i}"
+            for i in range(self._database_start_range, self._database_end_range + 1)
+        ]
+        rows = await self._api.batch_get_values(ranges)
+        self.users, notes = UserParser.parse_database(rows=rows, start_index=self._database_start_range)
+        # dump_directory = os.path.join(DEFAULT_RESOURCES_DIRECTORY_PATH, "database_dump.json")
 
-        dump_directory = os.path.join(DEFAULT_RESOURCES_DIRECTORY_PATH, "database_dump.json")
         # with open(dump_directory, mode="w", encoding="utf-8") as file:
-        #     dump(values, file, indent=4, ensure_ascii=False)
-        with open(dump_directory, "r", encoding="utf-8") as file:
-            rows = loads(file.read())
-            _parse_database(rows=rows)
+        #     file.write(dumps(rows, indent=4, ensure_ascii=False))
 
+        # with open(dump_directory, "r", encoding="utf-8") as file:
+        #     rows = loads(file.read())
+        #     self.users, notes = UserParser.parse_database(rows=rows, start_index=self._database_start_range)
+        return notes
 
-        # for i in range(len(values)):
-        #     line = values[i]
-        #     if not line:
-        #         continue
-        #     if not line[0]:
-        #         line[0] = values[i - 1][0]
-        #
-        #     database_row_number = i + self._database_ranges[0]
-        #     for column in line:
-        #         if "https://vk.com/id" not in column:
-        #             continue
-        #         string_vk_id = column.replace("https://vk.com/id", "")
-        #         if "https://vk.com/id" not in column or not string_vk_id.isdigit():
-        #             logger.warning(f"Ошибка в оформлении ссылки в строке {database_row_number} {column}")
-        #             continue
-        #         vk_id = int(string_vk_id)
-        #         self._database.update({vk_id: database_row_number})
-        #     # logger.debug(f"[{database_row_number}] {line}")
-        # self._is_databases_loaded = True
-        # logger.info(f"База данных загруженна! Количество пользователей: {len(self._database)}")
-        # range = 'Tests!A1:B1'
-        # values1 = await api.GetValues(range)
-        # print(values1)
-        #
-        # ranges = ['Tests!A1:B1', 'Tests!A2:B2']
-        # values2 = await api.BatchGetValues(ranges)
-        # print(values2)
+    def get_all_vk_links(self) -> List[Text]:
+        links = []
+        for user in self.users:
+            if not user.vk_link:
+                continue
+            links.append(user.vk_link)
+        return links
 
-        # range = 'Tests!C2'
-        # values1 = ['FALSE']
-        # await api.UpdateValues(range, values1, "COLUMNS")
-
-        # ranges = ['Tests!A4:B4', 'Tests!A6:B6']
-        # values2 = [['A4', 'B4'], ['A6','B6']]
-        # await api.BatchUpdateValues(ranges, values2)
-
-    async def write_status_in_conversation(self, status_list: list[dict[int, bool]]):
+    async def write_statuses_in_conversation(self, data: List[Tuple[User, bool]]):
         ranges = []
         values = []
-        for target_status in status_list:
-            user_id = target_status.get("user_id")
-            status = target_status.get("status")
-            row_number = self._database.get(user_id, None)
-            print(row_number, user_id, status)
-            ranges.append(f"{self._database_sheet_name}!H{row_number}")
+        for user, status in data:
+            print(user.fullname, user.is_in_conversation, status)
+            ranges.append(f"{self._database_sheet_name}!H{user.row_index}")
             if status is True:
                 values.append(["TRUE"])
             elif status is False:
                 values.append(["FALSE"])
-        # for i in range(len(ranges)):
-
-            # print(ranges[i], values[i])
         await self._api.batch_update_values(ranges, values)
-        # await self._api.update_values(target_range, values, "COLUMNS")
 
     async def start(self) -> None:
-        # await self._api.connect()
-        # result = await self._api.get_values(sheet_range=f"{self._database_sheet_name}!A1:H1")
-        await self._load_database()
+        await self._api.connect()
+        await self.update_database()
