@@ -54,7 +54,7 @@ class UserParser:
         if institute in Institutes:
             named_arguments.update(dict(institute=institute))
         elif institute:
-            result.warnings.append(cls.fmt(row.index, "Неверно указан институт! () ".format(institute)))
+            result.warnings.append(cls.fmt(row.index, "Неверно указан институт! ({}) ".format(institute)))
 
         course = row.data[UserRowSection.COURSE]
         if course.isdigit():
