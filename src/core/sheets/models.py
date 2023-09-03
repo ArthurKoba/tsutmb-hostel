@@ -1,6 +1,6 @@
-from typing import NamedTuple, Sequence, Text, Optional
+from typing import NamedTuple, Sequence, Text, Optional, List
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 RowIndex = int
 Row = Sequence[Text]
@@ -32,7 +32,7 @@ class StatusInChat(Enum):
     false = "FALSE"
 
 
-@dataclass(frozen=False)
+@dataclass(frozen=False, kw_only=True)
 class User:
     row_index: int
     room: int
@@ -47,7 +47,7 @@ class User:
 
     def __repr__(self):
         formatter_string = "User"
-        formatter_string += f"[{self.room}](" if self.room else "("
+        formatter_string += f"[{self.room}] (" if self.room else "("
         formatter_string += f"{self.fullname}" if self.fullname else "Null"
         formatter_string += f", {self.institute}" if self.institute else ""
         formatter_string += f", {self.course}" if self.course else ""
@@ -56,10 +56,18 @@ class User:
         formatter_string += f", {self.vk_link}" if self.vk_link else ""
         formatter_string += f", {self.is_in_conversation}" if self.is_in_conversation else ""
         return formatter_string + ")"
-#
-#     def get_vk_id(self) -> Optional[int]:
-#         try:
-#             string_id = self.vk_link.replace("https://vk.com/id", "")
-#             return int(string_id)
-#         except ValueError:
-#             return None
+
+    def get_vk_id(self) -> Optional[int]:
+        try:
+            string_id = self.vk_link.replace("https://vk.com/id", "")
+            return int(string_id)
+        except ValueError:
+            return None
+
+
+@dataclass(kw_only=True, frozen=False)
+class ParseRowResult:
+    user: Optional[User] = None
+    warnings: List[Text] = field(default_factory=list)
+    errors: List[Text] = field(default_factory=list)
+
