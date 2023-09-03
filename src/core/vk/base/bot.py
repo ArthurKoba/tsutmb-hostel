@@ -7,6 +7,8 @@ from vkbottle.modules import logger
 from vkbottle.polling.user_polling import UserPolling
 from vkbottle.tools import LoopWrapper
 
+from .labeler import Labeler
+
 if TYPE_CHECKING:
     from vkbottle.callback import ABCCallback
     from vkbottle.polling import ABCPolling
@@ -45,10 +47,15 @@ class BotUserLongPool(Bot):
                  polling: Optional["ABCPolling"] = None, callback: Optional["ABCCallback"] = None,
                  loop: Optional[asyncio.AbstractEventLoop] = None, loop_wrapper: Optional[LoopWrapper] = None,
                  router: Optional["ABCRouter"] = None, labeler: Optional["ABCLabeler"] = None,
-                 state_dispenser: Optional["ABCStateDispenser"] = None,
+                 state_dispenser: Optional["ABCStateDispenser"] = None, conversation_id: int = None,
                  error_handler: Optional["ABCErrorHandler"] = None, task_each_event: bool = True):
+
+        polling = polling or BotMessagesPooling()
+        labeler = labeler or Labeler(conversation_id=conversation_id)
 
         super().__init__(token, api, polling, callback, loop, loop_wrapper, router, labeler, state_dispenser,
                          error_handler, task_each_event)
-        self.labeler = labeler or UserLabeler()
-        self._polling = polling or BotMessagesPooling()
+
+    @property
+    def on(self) -> Labeler:
+        return self.labeler
