@@ -235,7 +235,7 @@ class VKManager(DefaultVKManager):
     async def _process_private_command(self, message: MessageMin):
 
         if not message.text.startswith("/"):
-            return
+            return await self.send_private_message(peer_id=message.peer_id, text=dialog.commands.start)
         cmd = message.text
 
         if cmd == "/start":
