@@ -21,7 +21,8 @@ def exception_handler(_loop: AbstractEventLoop, context):
         task: Task = context.get('task')
         main_logger.warning(f"Task destroyed: {task.get_name()} ({task.get_coro()})")
         return
-    main_logger.critical(f"Exception: {context.get('message', 'NO MSG')}")
+    _loop.stop()
+    _loop.close()
     raise exception
 
 
