@@ -2,7 +2,8 @@ from asyncio import new_event_loop, AbstractEventLoop
 from sys import version_info
 
 from core.loggers import main_logger
-from core.config import get_config
+from core.config import DEFAULT_RESOURCES_DIRECTORY_PATH, DEFAULT_CONFIG_FILENAME
+from core.config_utils import get_config
 from core.sheets import GoogleSheetHostel
 
 if version_info < (3, 10):
@@ -12,7 +13,7 @@ if version_info < (3, 10):
 
 async def main(loop: AbstractEventLoop) -> None:
     main_logger.error("Запуск тестового файла.")
-    configs = get_config()
+    configs = get_config(directory_path=DEFAULT_RESOURCES_DIRECTORY_PATH, config_filename=DEFAULT_CONFIG_FILENAME)
     hostel_sheets = GoogleSheetHostel(configs=configs)
     loop.create_task(hostel_sheets.start())
 
