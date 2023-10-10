@@ -1,9 +1,18 @@
 from asyncio import new_event_loop, AbstractEventLoop, Task
+from os import mkdir, path
 
-from core.config import get_config
+from core.config import DEFAULT_CONFIG_FILENAME, DEFAULT_RESOURCES_DIRECTORY_PATH, DEFAULT_LOGS_DIRECTORY_PATH
+
+if __name__ == '__main__':
+    if not path.exists(DEFAULT_RESOURCES_DIRECTORY_PATH):
+        mkdir(DEFAULT_RESOURCES_DIRECTORY_PATH)
+    if not path.exists(DEFAULT_LOGS_DIRECTORY_PATH):
+        mkdir(DEFAULT_LOGS_DIRECTORY_PATH)
+
 from core.loggers import main_logger
 from core.sheets import GoogleSheetHostel
 from core.vk.manager import VKManager
+from core.config_utils import get_config
 
 
 def exception_handler(_loop: AbstractEventLoop, context):
@@ -21,7 +30,7 @@ if __name__ == '__main__':
     loop = new_event_loop()
     loop.set_exception_handler(exception_handler)
 
-    configs = get_config()
+    configs = get_config(directory_path=DEFAULT_RESOURCES_DIRECTORY_PATH, config_filename=DEFAULT_CONFIG_FILENAME)
 
     group_access_token = configs.get("Tokens", "group_access_token")
     conversation_id = configs.getint("Conversation", "conversation_id")
@@ -44,4 +53,4 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         main_logger.warning("Завершение работы программы!")
     except BaseException as e:
-        main_logger.critical(f"Программа остановлена по ошибке: {e}")
+        main_logger.critical(f"Программа остановлена по ошибке: {e}", exc_info=True)
