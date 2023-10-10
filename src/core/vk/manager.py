@@ -288,7 +288,8 @@ class VKManager(DefaultVKManager):
                 await self.send_private_message(peer_id=message.peer_id, text=msg)
                 msg = ""
         if msg:
-            await self.send_private_message(peer_id=message.peer_id, text=msg)
+            return await self.send_private_message(peer_id=message.peer_id, text=msg)
+        await self.send_private_message(peer_id=message.peer_id, text="Нет пользователей которых необходимо исключить.")
 
     async def _show_users_which_are_need_invite(self, message: MessageMin):
         await self._sheets.update_database()
