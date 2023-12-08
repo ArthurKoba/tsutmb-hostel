@@ -27,7 +27,7 @@ class DefaultVKManager:
         self.bot = BotUserLongPool(access_token, loop=loop, conversation_id=conversation_id)
 
         self._group_id: Optional[int] = None
-        self._conversation_id = conversation_id
+        self.conversation_id = conversation_id
 
         self._conversation_admins: List[int] = []
         self._conversation_users: List[int] = []
@@ -50,7 +50,7 @@ class DefaultVKManager:
         return full_name
 
     async def send_message_to_conversation(self, text: str) -> int:
-        data = dict(peer_id=self._conversation_id, message=text, random_id=get_random_id())
+        data = dict(peer_id=self.conversation_id, message=text, random_id=get_random_id())
         logger.debug(f"Отправка сообщения в беседу. Сообщение: {text}")
         return await self.bot.api.messages.send(**data)
 
@@ -75,17 +75,18 @@ class DefaultVKManager:
         except BaseException as error:
             return logger.error(f"Сообщение с id: {message_id} не может быть удаленно. Причина: {error}.")
 
-    async def kick_user_conversation(self, user_id: int) -> None:
+    async def kick_user_conversation(self, user_id: int) -> bool:
         if user_id in self._conversation_admins:
             logger.debug(f"Пользователь с id: {user_id} не может быть исключен из беседы, так как он админ!")
-            return
-        chat_id = self._conversation_id - 2000000000
+            return False
+        chat_id = self.conversation_id - 2000000000
         result = await self.bot.api.messages.remove_chat_user(member_id=user_id, chat_id=chat_id)
         if result == 1:
             logger.debug(f"Пользователь с id: {user_id} исключен. Результат: {result}")
+            return True
 
     async def read_all_messages_from_conversation(self):
-        await self.bot.api.messages.mark_as_read(peer_id=self._conversation_id, mark_conversation_as_read=True)
+        await self.bot.api.messages.mark_as_read(peer_id=self.conversation_id, mark_conversation_as_read=True)
 
     async def send_left_user_conversation_notification(self, user_id: int) -> None:
         full_name = await self.get_full_name_for_user(user_id)
@@ -104,7 +105,7 @@ class DefaultVKManager:
         if not self._group_id:
             return logger.warning("Группа не была загружена предварительно!")
         response = await self.bot.api.messages.get_conversation_members(
-            peer_id=self._conversation_id, group_id=self._group_id
+            peer_id=self.conversation_id, group_id=self._group_id
         )
         bots = []
         admins = []
@@ -127,14 +128,14 @@ class DefaultVKManager:
     async def _load_group(self) -> None:
         response_group, response_conversation = await gather(
             self.bot.api.groups.get_by_id(),
-            self.bot.api.messages.get_conversations_by_id(peer_ids=[self._conversation_id])
+            self.bot.api.messages.get_conversations_by_id(peer_ids=[self.conversation_id])
         )
         logger.info(f"Данные группы {response_group[0].name} ({response_group[0].id}) успешно загружены.")
         self._group_id = response_group[0].id
         await self._load_conversation()
         logger.info("Беседа {} ({}) загружена! Количество админов: {}, ботов: {}, участников: {}.".format(
             response_conversation.items[0].chat_settings.title,
-            self._conversation_id,
+            self.conversation_id,
             len(self._conversation_admins),
             len(self._conversation_bots),
             len(self._conversation_users),
@@ -175,6 +176,7 @@ class VKManager(DefaultVKManager):
         self.bot.on.conversation_message()(self._process_conversation_message)
         self.bot.on.private_message()(self._process_private_command)
     #     self.bot.on.private_message(FromPeerRule([198534303]))(self.test)
+        self.kicked_list = set()
 
     async def _process_conversation_command(self, message: MessageMin):
         cmd = message.text
@@ -182,7 +184,7 @@ class VKManager(DefaultVKManager):
             full_name = await self.get_full_name_for_user(user_id=message.from_id)
             message_text = dialog.permission.command_denied.format(user_id=message.from_id, full_name=full_name)
             reply_message_id = await self.send_reply_message(
-                text=message_text, peer_id=self._conversation_id, reply_message_id=message.id
+                text=message_text, peer_id=self.conversation_id, reply_message_id=message.id
             )
             await sleep(10)
             await gather(self.delete_message(message.id), self.delete_message(reply_message_id))
@@ -220,17 +222,22 @@ class VKManager(DefaultVKManager):
             await self._process_conversation_command(message)
 
     async def _process_user_transit(self, event: RawUserEvent) -> None:
-        if event.object[1] not in (6, 7):
-            return
+        edit_id = event.object[1]
         user_id = event.object[3]
         peer_id = event.object[2]
-        if event.object[1] == 6:
+        if peer_id != self.conversation_id:
+            return
+        if edit_id == 6:
             logger.debug(f"Пользователь с id: {user_id} присоединился к беседе!")
             await self.send_join_user_conversation_notification(user_id=user_id)
-        elif event.object[1] == 7:
+        elif edit_id == 7:
             logger.debug(f"Пользователь с id: {user_id} вышел из беседы!")
             await self.send_left_user_conversation_notification(user_id=user_id)
-            await self.kick_user_conversation(user_id=user_id)
+            print(self.kicked_list)
+            if user_id in self.kicked_list:
+                self.kicked_list.remove(user_id)
+            elif await self.kick_user_conversation(user_id=user_id):
+                self.kicked_list.add(user_id)
 
     async def _process_private_command(self, message: MessageMin):
 
