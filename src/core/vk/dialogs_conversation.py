@@ -38,6 +38,11 @@ class Commands:
     private_help += "/show_need_invite - показать пользователей которых нужно пригласить.\n"
     private_help += "/kick_users_from_conversation - исключить пользователей из беседы, которых нет в базе.\n"
 
+    delete_mute_success = "Мут успешно снят с пользователя."
+    delete_mute_fail = "У пользователя нет мута или произошла ошибка скрипта."
+
+    add_mute_success = "Пользователю добавлено время мута!"
+
 
 class Dialogs:
     permission = Permissions

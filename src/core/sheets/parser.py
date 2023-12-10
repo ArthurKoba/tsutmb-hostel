@@ -1,3 +1,4 @@
+from time import time
 from typing import List, Text, Tuple, Optional
 from core.sheets.models import \
     RowIndex, Rows, IndexedRow, \
@@ -89,6 +90,19 @@ class UserParser:
             named_arguments.update(dict(is_in_conversation=False))
         else:
             result.warnings.append(cls.fmt(row.index, "Неверно указано нахождение в беседе!", is_in_conversation))
+
+        if len(row.data) >= 9:
+            mute_end_timestamp = row.data[UserRowSection.MUTE_END_TIMESTAMP]
+            if mute_end_timestamp and mute_end_timestamp.isdigit():
+                mute_end_timestamp = int(mute_end_timestamp)
+                named_arguments.update(dict(mute_end_timestamp=mute_end_timestamp))
+            else:
+                mute_end_timestamp = 0
+            if mute_end_timestamp and time() > mute_end_timestamp:
+                result.warnings.append(cls.fmt(row.index, "Время мута не актуально!", mute_end_timestamp))
+            else:
+                result.warnings.append(cls.fmt(row.index, "Неверно указано время окончания мута!", mute_end_timestamp))
+
         result.user = User(**named_arguments)
         return result
 

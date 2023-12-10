@@ -21,6 +21,7 @@ class UserRowSection:
     ADDITIONAL_INFORMATION = 5
     VK_LINK = 6
     IN_CONVERSATION = 7
+    MUTE_END_TIMESTAMP = 8
 
 
 Institutes = ("ИМФИТ", "ФКИ", "ФФКС", "ФФЖ", "ФИМПС", "ИЭУС", "ИПНБ", "Мед.", "ИЕ", "Пед.")
@@ -43,6 +44,7 @@ class User:
     other_information: str = None
     vk_link: str = None
     is_in_conversation: bool = None
+    mute_end_timestamp: int = None
     is_normalize: bool = False
 
     def __repr__(self):
