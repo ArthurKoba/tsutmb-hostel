@@ -223,7 +223,11 @@ class VKManager(DefaultVKManager):
             logger.debug(f"MUTE | {full_name} ({message.from_id}) отправил сообщение: {message.text}")
             return await self.delete_message(message_id=message.id)
         if message.text.startswith("/"):
-            await self._process_conversation_command(message)
+            return await self._process_conversation_command(message)
+        if "@all" in message.text and message.from_id not in self._conversation_admins:
+            message_id = await self.send_message_to_conversation(text=dialog.permission.tag_all_denied)
+            await sleep(10)
+            await self.delete_message(message_id)
 
     async def _process_user_transit(self, event: RawUserEvent) -> None:
         edit_id = event.object[1]
