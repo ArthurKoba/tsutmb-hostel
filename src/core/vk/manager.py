@@ -218,14 +218,19 @@ class VKManager(DefaultVKManager):
             return
         logger.debug(f"New message: {message.text}")
         self._notification_join_target_offset += 1
+        full_name = await self.get_full_name_for_user(message.from_id)
         if self._global_mute and message.from_id not in self._conversation_admins:
-            full_name = await self.get_full_name_for_user(message.from_id)
             logger.debug(f"MUTE | {full_name} ({message.from_id}) отправил сообщение: {message.text}")
+            return await self.delete_message(message_id=message.id)
+        if message.from_id in self._sheets.muted:
+            logger.debug(f"MUTED {full_name} ({message.from_id}) отправил сообщение: {message.text}")
             return await self.delete_message(message_id=message.id)
         if message.text.startswith("/"):
             return await self._process_conversation_command(message)
         if "@all" in message.text and message.from_id not in self._conversation_admins:
-            message_id = await self.send_message_to_conversation(text=dialog.permission.tag_all_denied)
+            message_id = await self.send_reply_message(
+                text=dialog.permission.tag_all_denied, peer_id=self.conversation_id, reply_message_id=message.id
+            )
             await sleep(10)
             await self.delete_message(message_id)
 
