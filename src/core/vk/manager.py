@@ -179,6 +179,8 @@ class VKManager(DefaultVKManager):
         self.kicked_list = set()
 
     async def _process_conversation_command(self, message: MessageMin):
+        if message.peer_id != self.conversation_id:
+            return
         cmd = message.text
         if message.from_id not in self._conversation_admins:
             full_name = await self.get_full_name_for_user(user_id=message.from_id)
@@ -212,9 +214,11 @@ class VKManager(DefaultVKManager):
             return await self.delete_message(message_id)
 
     async def _process_conversation_message(self, message: MessageMin):
+        if message.peer_id != self.conversation_id:
+            return
         logger.debug(f"New message: {message.text}")
         self._notification_join_target_offset += 1
-        if self._global_mute and message.from_id in self._conversation_users:
+        if self._global_mute and message.from_id not in self._conversation_admins:
             full_name = await self.get_full_name_for_user(message.from_id)
             logger.debug(f"MUTE | {full_name} ({message.from_id}) отправил сообщение: {message.text}")
             return await self.delete_message(message_id=message.id)
