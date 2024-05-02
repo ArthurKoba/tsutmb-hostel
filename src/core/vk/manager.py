@@ -18,6 +18,7 @@ class DefaultVKManager:
     def __init__(
             self, access_token: str,
             conversation_id: int,
+            admins_conversation_id: int,
             loop: AbstractEventLoop,
             notification_join_offset: int = None,
             loop_checker_sleep_sec: int = None,
@@ -28,6 +29,7 @@ class DefaultVKManager:
 
         self._group_id: Optional[int] = None
         self.conversation_id = conversation_id
+        self.admins_conversation_id = admins_conversation_id
 
         self._conversation_admins: List[int] = []
         self._conversation_users: List[int] = []
@@ -87,6 +89,7 @@ class DefaultVKManager:
 
     async def read_all_messages_from_conversation(self):
         await self.bot.api.messages.mark_as_read(peer_id=self.conversation_id, mark_conversation_as_read=True)
+        await self.bot.api.messages.mark_as_read(peer_id=self.admins_conversation_id, mark_conversation_as_read=True)
 
     async def send_left_user_conversation_notification(self, user_id: int) -> None:
         full_name = await self.get_full_name_for_user(user_id)
@@ -164,6 +167,7 @@ class VKManager(DefaultVKManager):
         super().__init__(
             access_token=configs.get("Tokens", "group_access_token"),
             conversation_id=configs.getint("Conversation", "conversation_id"),
+            admins_conversation_id=configs.getint("Conversation", "admins_conversation_id"),
             loop=loop,
             notification_join_offset=notification_join_offset,
             loop_checker_sleep_sec=loop_checker_sleep_sec
