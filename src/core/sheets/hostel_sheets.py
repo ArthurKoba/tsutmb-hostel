@@ -27,7 +27,7 @@ class GoogleSheetHostel:
         self.muted: dict[int: Optional[int]] = {}
 
     def is_muted(self, user_id: int) -> bool:
-        return user_id in self.muted and self.muted[user_id] == 0 or self.muted[user_id] < time()
+        return user_id in self.muted and (self.muted[user_id] == 0 or self.muted[user_id] < time())
 
     async def update_database(self) -> List[Text]:
         logger.debug("Обновление базы данных.")
@@ -136,7 +136,7 @@ class GoogleSheetHostel:
         values = []
         for user in self.users:
             for link in map_links.keys():
-                if link not in user.vk_link:
+                if not user.vk_link or link not in user.vk_link:
                     continue
                 ranges.append(f"{self._database_sheet_name}!G{user.row_index}")
                 values.append([map_links.get(link)])
