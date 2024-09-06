@@ -22,10 +22,17 @@ class UserParser:
         return fullname
 
     @staticmethod
-    def check_vk_link(vk_link: str) -> bool:
+    def check_true_vk_link(vk_link: str) -> bool:
         if not vk_link:
             return True
         elif "https://vk.com/id" in vk_link and vk_link.replace("https://vk.com/id", "").isdigit():
+            return True
+
+    @staticmethod
+    def check_vk_link(vk_link: str) -> bool:
+        if not vk_link:
+            return True
+        elif "https://vk.com/" in vk_link and vk_link.replace("https://vk.com/", ""):
             return True
 
     @classmethod
@@ -76,10 +83,12 @@ class UserParser:
         named_arguments.update(dict(other_information=row.data[UserRowSection.ADDITIONAL_INFORMATION]))
 
         vk_link = row.data[UserRowSection.VK_LINK]
-        if cls.check_vk_link(vk_link):
+        if cls.check_true_vk_link(vk_link):
             named_arguments.update(dict(vk_link=vk_link))
         elif vk_link:
             result.warnings.append(cls.fmt(row.index, "Неверно указана ссылка на ВК!", vk_link))
+            if cls.check_vk_link(vk_link):
+                named_arguments.update(dict(vk_link=vk_link))
         else:
             result.warnings.append(cls.fmt(row.index, "Не установлена ссылка ВК!"))
 

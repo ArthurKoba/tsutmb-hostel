@@ -15,24 +15,16 @@ from .api import ConversationAPI
 from core.vk.dialogs_conversation import Dialogs as dialog
 from core.loggers import conversation_logger as logger
 from core.vk.base.bot import BotUserLongPool
-
-
-def with_update_db(method):
-    @wraps(method)
-    async def wrapper(self, message: MessageMin):
-        await self._sheets.update_database()
-        return await method(message)
-
-    return wrapper
+from ..sheets.parser import UserParser
 
 
 def mix_db_ids_and_conversation_ids(method):
     @wraps(method)
     async def wrapped(self, message: MessageMin):
+        await self._sheets.update_database()
         db_ids = get_vk_ids_from_list_links(self._sheets.get_all_vk_links())
         conversation_ids = self._api.get_user_ids()
-        return await method(message, db_ids, conversation_ids)
-
+        return await method(self, message, db_ids, conversation_ids)
     return wrapped
 
 class VKManager:
@@ -58,7 +50,6 @@ class VKManager:
         self.bot.on.raw_event(UserEventType.CHAT_INFO_EDIT)(self._process_user_transit)
         self.bot.on.conversation_message()(self._process_conversation_message)
         self.bot.on.private_message()(self._process_private_command)
-    #     self.bot.on.private_message(FromPeerRule([198534303]))(self.test)
         self.kicked_list = set()
 
 
@@ -188,6 +179,8 @@ class VKManager:
             await self._kick_users_which_are_not_in_db(message)
         elif cmd == "/update_statuses":
             await self._update_statuses_db_in_conversation(message)
+        elif cmd == "/update_links":
+            await self._update_db_links(message)
 
     async def _send_notes(self, message: MessageMin):
         notes = await self._sheets.update_database()
@@ -201,9 +194,6 @@ class VKManager:
         if msg:
             await self._api.send_private_message(peer_id=message.peer_id, text=msg)
 
-
-
-    @with_update_db
     @mix_db_ids_and_conversation_ids
     async def _show_users_which_are_need_kick(self, message: MessageMin, db_ids, conversation_ids):
         need_kick = []
@@ -212,7 +202,6 @@ class VKManager:
                 need_kick.append(user_id)
         await self._api.send_named_links_from_user_ids(message.peer_id, need_kick)
 
-    @with_update_db
     @mix_db_ids_and_conversation_ids
     async def _show_users_which_are_need_invite(self, message: MessageMin, db_ids, conversation_ids):
         need_invite = []
@@ -221,7 +210,6 @@ class VKManager:
                 need_invite.append(user_id)
         await self._api.send_named_links_from_user_ids(message.peer_id, need_invite)
 
-    @with_update_db
     @mix_db_ids_and_conversation_ids
     async def _kick_users_which_are_not_in_db(self, message: MessageMin, db_ids, conversation_ids):
         for user_id in conversation_ids:
@@ -229,11 +217,33 @@ class VKManager:
                 continue
             await self._api.kick_user_conversation(user_id=user_id)
 
-    @with_update_db
-    async def _update_statuses_db_in_conversation(self, message: MessageMin, db_ids, conversation_ids):
+    @mix_db_ids_and_conversation_ids
+    async def _update_statuses_db_in_conversation(self, message: MessageMin, db_users, conversation_ids):
         result = await self._sheets.update_statuses(conversation_ids)
         await self._api.send_private_message(
             peer_id=message.peer_id, text=dialog.commands.count_updated_statuses.format(count=result)
+        )
+
+    @mix_db_ids_and_conversation_ids
+    async def _update_db_links(self, message: MessageMin, db_users, conversation_ids):
+        need_update_links = []
+        for link in self._sheets.get_all_vk_links():
+            if UserParser.check_true_vk_link(link):
+                continue
+            need_update_links.append(link)
+
+        users = await self.bot.api.users.get(
+            [link.replace("https://vk.com/", "") for link in need_update_links],
+            fields=["screen_name"]
+        )
+        map_links = {}
+        for user in users:
+            if not user.screen_name:
+                continue
+            map_links.update({f"https://vk.com/{user.screen_name}": f"https://vk.com/id{user.id}"})
+        count = await self._sheets.update_links(map_links)
+        await self._api.send_private_message(
+            peer_id=message.peer_id, text=dialog.commands.count_updated_links.format(count=count)
         )
 
     async def _loop_checker(self) -> None:

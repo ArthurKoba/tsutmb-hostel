@@ -1,4 +1,4 @@
-from typing import Optional, List, Text, Tuple
+from typing import Optional, List, Text, Tuple, Dict
 from asyncio import sleep
 from time import time
 
@@ -130,3 +130,16 @@ class GoogleSheetHostel:
             if time() - self._last_update_db < 60 * 5:
                 continue
             await self.update_database()
+
+    async def update_links(self, map_links: Dict[str, str]) -> int:
+        ranges = []
+        values = []
+        for user in self.users:
+            for link in map_links.keys():
+                if link not in user.vk_link:
+                    continue
+                ranges.append(f"{self._database_sheet_name}!G{user.row_index}")
+                values.append([map_links.get(link)])
+        await self._api.batch_update_values(ranges, values)
+        return len(ranges)
+

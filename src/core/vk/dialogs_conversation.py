@@ -23,6 +23,7 @@ class Commands:
     lock = "заблокирована"
 
     count_updated_statuses = "Обновлено {count} статусов пользователей."
+    count_updated_links = "Обновлено {count} ссылок пользователей."
 
     help = "Команды бота:\n"
     help += "/help - получение списка доступных команд.\n"
@@ -41,6 +42,7 @@ class Commands:
     private_help += "/show_need_kick - показать пользователей которых нужно исключить.\n"
     private_help += "/show_need_invite - показать пользователей которых нужно пригласить.\n"
     private_help += "/kick_users_from_conversation - исключить пользователей из беседы, которых нет в базе.\n"
+    private_help += "/update_links - обновить ссылки пользователей к нужному формату.\n"
 
     delete_mute_success = "Мут успешно снят с пользователя."
     delete_mute_fail = "У пользователя нет мута или произошла ошибка скрипта."
