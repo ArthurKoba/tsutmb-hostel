@@ -78,12 +78,11 @@ class VKManager:
             return await self._api.delete_message(message_id=message.id)
         if message.text.startswith("/"):
             return await self._process_conversation_command(author_id, message)
-        if "@all" in message.text and not self._api.is_admin(author_id):
-            message_id = await self._api.send_reply_message(
-                text=dialog.permission.tag_all_denied, peer_id=self.conversation_id, reply_message_id=message.id
+        if ("@all " in message.text or message.text == "@all") and not self._api.is_admin(author_id):
+            await self._api.send_reply_message_conversation_and_sleep_and_delete(
+                dialog.permission.tag_all_denied, message.id, 15
             )
-            await sleep(10)
-            await self._api.delete_message(message_id)
+            await self._api.delete_message(message.id)
 
 
     async def _process_conversation_command(self, author_id: int, message: MessageMin):
