@@ -45,8 +45,10 @@ class GoogleSheetHostel:
             for user in self.users:
                 if not user.mute_end_timestamp:
                     continue
-                if user.mute_end_timestamp > time() and user.get_vk_id():
-                    muted.update({user.get_vk_id(): user.mute_end_timestamp})
+                if user.mute_end_timestamp > time():
+                    await self.remove_mute_user(user)
+                    if user.get_vk_id():
+                        muted.update({user.get_vk_id(): user.mute_end_timestamp})
             self.muted = muted
         except Exception as e:
             logger.error(e)
@@ -62,28 +64,31 @@ class GoogleSheetHostel:
         self._last_update_db = time()
         return notes
 
-    async def add_mute_time(self, user_id: int, sec: int) -> bool:
+    async def add_mute_time(self, user_id: int, timestamp: int) -> bool:
         user = self.get_user_by_vk_id(user_id)
-        if not user or type(sec) is not int:
+        if not user:
+            logger.debug(f"Пользователь с ID: {user_id} не обнаружен!")
             return False
-        if not user.mute_end_timestamp or user.mute_end_timestamp <= time():
-            user.mute_end_timestamp = int(time())
-        new_mute_time = user.mute_end_timestamp + sec
-        self.muted.update({user_id: new_mute_time})
+        self.muted.update({user_id: timestamp})
         ranges = [f"{self._database_sheet_name}!I{user.row_index}"]
-        values = [[str(new_mute_time)]]
+        values = [[str(timestamp)]]
         await self._api.batch_update_values(ranges, values)
         return True
+
+    async def remove_mute_user(self, user: User):
+        ranges = [f"{self._database_sheet_name}!I{user.row_index}"]
+        values = [[""]]
+        await self._api.batch_update_values(ranges, values)
 
     async def remove_mute(self, user_id: int) -> bool:
         user = self.get_user_by_vk_id(user_id)
         if not user:
+            logger.debug(f"Пользователь с ID: {user_id} не обнаружен!")
             return False
         if user_id in self.muted:
             self.muted.pop(user_id)
-        ranges = [f"{self._database_sheet_name}!I{user.row_index}"]
-        values = [[""]]
-        await self._api.batch_update_values(ranges, values)
+            await self.remove_mute_user(user)
+        return True
 
     def get_user_by_vk_id(self, user_id: int) -> Optional[User]:
         for user in self.users:

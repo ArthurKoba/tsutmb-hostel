@@ -10,7 +10,7 @@ from configparser import ConfigParser
 
 from core.sheets import GoogleSheetHostel
 
-from core.vk.utils import get_vk_ids_from_list_links
+from core.vk.utils import get_vk_ids_from_list_links, get_timestamp_from_minutes_offset, timestamp_to_string
 from .api import ConversationAPI
 
 from core.vk.dialogs_conversation import Dialogs as dialog
@@ -102,18 +102,45 @@ class VKManager:
         elif cmd == "/send_join_extended_message":
             await self._api.send_message_to_conversation(text=dialog.transit.extended_join)
         elif cmd == "/del":
-            if message.reply_message:
-                await self._api.delete_message(message.reply_message.id)
-            else:
-                await self._api.send_message_and_sleep_and_delete(dialog.commands.unknown_del_msg_id, 10)
+            if not message.reply_message:
+                return await self._api.send_reply_message_conversation_and_sleep_and_delete(
+                    dialog.commands.not_reply_message, message.id, 10)
+            await self._api.delete_message(message.reply_message.id)
         elif cmd == "/unmute":
-            user_id = message.reply_message.from_id
-            result = await self._sheets.remove_mute(user_id)
+            if not message.reply_message:
+                return await self._api.send_reply_message_conversation_and_sleep_and_delete(
+                    dialog.commands.not_reply_message, message.id, 10)
+            result = await self._sheets.remove_mute(message.reply_message.from_id)
             await self._api.send_reply_message_conversation_and_sleep_and_delete(
-                dialog.commands.delete_mute_success if result else dialog.commands.delete_mute_fail, message.id, 10
+                dialog.commands.delete_mute_success if result else dialog.commands.delete_mute_fail,
+                message.id, 10
             )
         elif cmd.startswith("/mute"):
-            pass
+            if not message.reply_message:
+                return await self._api.send_reply_message_conversation_and_sleep_and_delete(
+                    dialog.commands.not_reply_message, message.id, 10)
+            elif self._api.is_admin(message.reply_message.from_id):
+                return await self._api.send_reply_message_conversation(
+                    dialog.permission.command_denied, message.id)
+            if "/mute " in cmd:
+                timestamp = get_timestamp_from_minutes_offset(cmd.replace("/mute ", ""))
+                if timestamp is None:
+                    return await self._api.send_reply_message_conversation_and_sleep_and_delete(
+                        dialog.commands.time_delta_error, message.id, 10)
+            else:
+                timestamp = 0
+            result = await self._sheets.add_mute_time(message.reply_message.from_id, timestamp)
+            if result:
+                await self._api.send_message_to_conversation(
+                    dialog.commands.add_mute_success.format(
+                        await self._api.get_named_link(message.reply_message.from_id),
+                        dialog.commands.forever if timestamp == 0 else timestamp_to_string(timestamp)
+                    )
+                )
+            else:
+                return await self._api.send_reply_message_conversation_and_sleep_and_delete(
+                    dialog.commands.delete_mute_fail, message.id, 10)
+
         else:
             await self._api.send_reply_message_conversation_and_sleep_and_delete(
                 dialog.commands.unknown, message.id, 5

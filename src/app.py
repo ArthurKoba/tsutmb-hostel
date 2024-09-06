@@ -36,7 +36,7 @@ if __name__ == '__main__':
     vk_manager = VKManager(configs=configs, loop=loop, hostel_sheets=hostel_sheets)
 
     loop.create_task(vk_manager.start())
-    # loop.create_task(hostel_sheets.start())
+    loop.create_task(hostel_sheets.start())
 
     try:
         loop.run_forever()
