@@ -29,6 +29,9 @@ class GoogleSheetHostel:
         self.users: List[User] = []
         self.muted: dict[int: Optional[int]] = {}
 
+    def is_muted(self, user_id: int) -> bool:
+        return user_id in self.muted
+
     async def update_database(self) -> List[Text]:
         logger.debug("Обновление базы данных.")
         ranges = [
@@ -105,6 +108,15 @@ class GoogleSheetHostel:
             elif status is False:
                 values.append(["FALSE"])
         await self._api.batch_update_values(ranges, values)
+
+    async def update_statuses(self, user_ids_in_conversation: List[int]) -> int:
+        data = []
+        for user in self.users:
+            actual_status = user.get_vk_id() in user_ids_in_conversation
+            if actual_status != user.is_in_conversation:
+                data.append((user, actual_status))
+        await self.write_statuses_in_conversation(data)
+        return len(data)
 
     async def start(self) -> None:
         await self._api.connect()

@@ -7,10 +7,12 @@ def get_random_id() -> int:
 
 
 def get_vk_id_from_link(link: Text) -> Optional[int]:
+    if not "https://vk.com/id" in link:
+        return None
     try:
         return int(link.replace("https://vk.com/id", ""))
     except ValueError:
-        return
+        return None
 
 
 def get_vk_ids_from_list_links(links: List[Text]) -> List[int]:

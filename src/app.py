@@ -32,22 +32,11 @@ if __name__ == '__main__':
     loop.set_exception_handler(exception_handler)
 
     configs = get_config(directory_path=DEFAULT_RESOURCES_DIRECTORY_PATH, config_filename=DEFAULT_CONFIG_FILENAME)
-
-    group_access_token = configs.get("Tokens", "group_access_token")
-    conversation_id = configs.getint("Conversation", "conversation_id")
-    notification_join_offset = configs.getint("Conversation", "notification_join_offset")
-
     hostel_sheets = GoogleSheetHostel(configs=configs)
-
-    vk_manager = VKManager(
-        configs=configs,
-        loop=loop,
-        hostel_sheets=hostel_sheets,
-        notification_join_offset=notification_join_offset
-    )
+    vk_manager = VKManager(configs=configs, loop=loop, hostel_sheets=hostel_sheets)
 
     loop.create_task(vk_manager.start())
-    loop.create_task(hostel_sheets.start())
+    # loop.create_task(hostel_sheets.start())
 
     try:
         loop.run_forever()
