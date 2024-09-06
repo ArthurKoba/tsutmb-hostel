@@ -1,5 +1,4 @@
-from asyncio import AbstractEventLoop, sleep, gather
-from typing import Dict, List, Optional
+from asyncio import AbstractEventLoop, sleep
 from functools import wraps
 
 from vkbottle_types.events.enums import UserEventType
