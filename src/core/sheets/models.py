@@ -60,6 +60,8 @@ class User:
         return formatter_string + ")"
 
     def get_vk_id(self) -> Optional[int]:
+        if not self.vk_link or not self.vk_link.startswith("https://vk.com/id"):
+            return None
         try:
             string_id = self.vk_link.replace("https://vk.com/id", "")
             return int(string_id)
