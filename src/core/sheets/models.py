@@ -1,3 +1,4 @@
+from time import time
 from typing import NamedTuple, Sequence, Text, Optional, List
 from enum import Enum
 from dataclasses import dataclass, field
@@ -67,6 +68,16 @@ class User:
             return int(string_id)
         except ValueError:
             return None
+
+    def is_muted(self) -> bool:
+        if self.mute_end_timestamp is None:
+            return False
+        return self.mute_end_timestamp == 0 or time() < self.mute_end_timestamp
+
+    def need_clear_timestamp(self) -> bool:
+        if self.mute_end_timestamp is None:
+            return False
+        return time() > self.mute_end_timestamp > 0
 
 
 @dataclass(kw_only=True, frozen=False)

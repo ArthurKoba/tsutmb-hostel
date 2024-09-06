@@ -6,10 +6,7 @@ from configparser import ConfigParser
 
 from extensions.google_sheets import GoogleSheetsApiClient
 from core.loggers import hostel_sheets as logger
-from json import dump, loads, dumps
 
-from core.config import DEFAULT_RESOURCES_DIRECTORY_PATH
-import os
 
 from .models import Rows, User
 from .parser import UserParser
@@ -30,7 +27,7 @@ class GoogleSheetHostel:
         self.muted: dict[int: Optional[int]] = {}
 
     def is_muted(self, user_id: int) -> bool:
-        return user_id in self.muted
+        return user_id in self.muted and self.muted[user_id] == 0 or self.muted[user_id] < time()
 
     async def update_database(self) -> List[Text]:
         logger.debug("Обновление базы данных.")
@@ -43,12 +40,12 @@ class GoogleSheetHostel:
             self.users, notes = UserParser.parse_database(rows=rows, start_index=self._database_start_range)
             muted = dict()
             for user in self.users:
-                if not user.mute_end_timestamp:
+                if user.mute_end_timestamp is None:
                     continue
-                if user.mute_end_timestamp > time():
+                if user.is_muted() and user.get_vk_id():
+                    muted.update({user.get_vk_id(): user.mute_end_timestamp})
+                elif user.need_clear_timestamp():
                     await self.remove_mute_user(user)
-                    if user.get_vk_id():
-                        muted.update({user.get_vk_id(): user.mute_end_timestamp})
             self.muted = muted
         except Exception as e:
             logger.error(e)
