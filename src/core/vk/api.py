@@ -152,17 +152,15 @@ class ConversationAPI:
     def get_user_ids(self) -> List[int]:
         return [*self.conversation_admins, *self.conversation_users]
 
-    async def get_named_links(self, list_ids: Iterable[int]) -> List[str]:
-        return [
-            f"@id{user_id} ({await self.get_full_name_for_user(user_id)})"
-            for user_id in list_ids
-        ]
+    async def get_named_link(self, user_id: int) -> str:
+        return f"@id{user_id} ({await self.get_full_name_for_user(user_id)})"
 
     async def send_named_links_from_user_ids(self, peer_id: int, list_ids: Iterable[int]):
         if not list_ids:
             return await self.send_private_message(peer_id=peer_id, text=dialog.commands.not_user_are_request)
         msg = ""
-        for link in await self.get_named_links(list_ids):
+        for user_id in list_ids:
+            link = await self.get_named_link(user_id)
             if len(msg) + len(link) < 4000:
                 msg += "\n" + link
             else:
