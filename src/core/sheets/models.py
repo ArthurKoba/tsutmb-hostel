@@ -1,3 +1,4 @@
+from time import time
 from typing import NamedTuple, Sequence, Text, Optional, List
 from enum import Enum
 from dataclasses import dataclass, field
@@ -21,6 +22,7 @@ class UserRowSection:
     ADDITIONAL_INFORMATION = 5
     VK_LINK = 6
     IN_CONVERSATION = 7
+    MUTE_END_TIMESTAMP = 8
 
 
 Institutes = (
@@ -50,6 +52,7 @@ class User:
     other_information: str = None
     vk_link: str = None
     is_in_conversation: bool = None
+    mute_end_timestamp: int = None
     is_normalize: bool = False
 
     def __repr__(self):
@@ -65,11 +68,23 @@ class User:
         return formatter_string + ")"
 
     def get_vk_id(self) -> Optional[int]:
+        if not self.vk_link or not self.vk_link.startswith("https://vk.com/id"):
+            return None
         try:
             string_id = self.vk_link.replace("https://vk.com/id", "")
             return int(string_id)
         except ValueError:
             return None
+
+    def is_muted(self) -> bool:
+        if self.mute_end_timestamp is None:
+            return False
+        return self.mute_end_timestamp == 0 or time() < self.mute_end_timestamp
+
+    def need_clear_timestamp(self) -> bool:
+        if self.mute_end_timestamp is None:
+            return False
+        return time() > self.mute_end_timestamp > 0
 
 
 @dataclass(kw_only=True, frozen=False)

@@ -22,6 +22,7 @@ def get_default_parser() -> ConfigParser:
 
     config_parser.add_section("Conversation")
     config_parser.set("Conversation", "conversation_id", "2000000000")
+    config_parser.set("Conversation", "admins_conversation_id", "2000000001")
     config_parser.set("Conversation", "notification_join_offset", "20")
 
     return config_parser

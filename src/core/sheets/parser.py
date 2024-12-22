@@ -1,3 +1,4 @@
+from time import time
 from typing import List, Text, Tuple, Optional
 from core.sheets.models import \
     RowIndex, Rows, IndexedRow, \
@@ -21,10 +22,17 @@ class UserParser:
         return fullname
 
     @staticmethod
-    def check_vk_link(vk_link: str) -> bool:
+    def check_true_vk_link(vk_link: str) -> bool:
         if not vk_link:
             return True
         elif "https://vk.com/id" in vk_link and vk_link.replace("https://vk.com/id", "").isdigit():
+            return True
+
+    @staticmethod
+    def check_vk_link(vk_link: str) -> bool:
+        if not vk_link:
+            return True
+        elif "https://vk.com/" in vk_link and vk_link.replace("https://vk.com/", ""):
             return True
 
     @classmethod
@@ -75,10 +83,12 @@ class UserParser:
         named_arguments.update(dict(other_information=row.data[UserRowSection.ADDITIONAL_INFORMATION]))
 
         vk_link = row.data[UserRowSection.VK_LINK]
-        if cls.check_vk_link(vk_link):
+        if cls.check_true_vk_link(vk_link):
             named_arguments.update(dict(vk_link=vk_link))
         elif vk_link:
             result.warnings.append(cls.fmt(row.index, "Неверно указана ссылка на ВК!", vk_link))
+            if cls.check_vk_link(vk_link):
+                named_arguments.update(dict(vk_link=vk_link))
         else:
             result.warnings.append(cls.fmt(row.index, "Не установлена ссылка ВК!"))
 
@@ -89,6 +99,18 @@ class UserParser:
             named_arguments.update(dict(is_in_conversation=False))
         else:
             result.warnings.append(cls.fmt(row.index, "Неверно указано нахождение в беседе!", is_in_conversation))
+
+        if len(row.data) >= 9:
+            mute_end_timestamp = row.data[UserRowSection.MUTE_END_TIMESTAMP]
+            if mute_end_timestamp and mute_end_timestamp.isdigit():
+                mute_end_timestamp = int(mute_end_timestamp)
+            else:
+                mute_end_timestamp = -1
+            named_arguments.update(dict(mute_end_timestamp=mute_end_timestamp))
+            if time() > mute_end_timestamp > 0:
+                result.warnings.append(cls.fmt(row.index, "Время мута не актуально!", mute_end_timestamp))
+            elif mute_end_timestamp == -1:
+                result.warnings.append(cls.fmt(row.index, "Неверно указано время окончания мута!", mute_end_timestamp))
         result.user = User(**named_arguments)
         return result
 
