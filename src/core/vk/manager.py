@@ -24,7 +24,7 @@ class DefaultVKManager:
     ):
         self._loop = loop
         self._loop_checker_sleep_sec = loop_checker_sleep_sec or 30
-        self.bot = BotUserLongPool(access_token, loop=loop, conversation_id=conversation_id)
+        self.bot = BotUserLongPool(access_token, conversation_id=conversation_id)
 
         self._group_id: Optional[int] = None
         self.conversation_id = conversation_id
@@ -240,7 +240,6 @@ class VKManager(DefaultVKManager):
                 self.kicked_list.add(user_id)
 
     async def _process_private_command(self, message: MessageMin):
-
         if not message.text.startswith("/"):
             return await self.send_private_message(peer_id=message.peer_id, text=dialog.commands.start)
         cmd = message.text

@@ -105,7 +105,7 @@ def get_config(
     if config_file_exist:
         logger.debug(f"Обнаружен файл конфигурации: \"{full_path}\". Чтение и проверка структуры...")
         target_config_parser = ConfigParser()
-        target_config_parser.read(full_path)
+        target_config_parser.read(full_path, encoding="utf-8")
         if compare_and_combine_configs(default_config_parser, target_config_parser, DEFAULT_OUTDATED_OPTIONS_SECTION):
             with open(full_path, "w") as config_file:
                 target_config_parser.write(config_file)
