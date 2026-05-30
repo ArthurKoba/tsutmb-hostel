@@ -50,15 +50,22 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Convert to lowercase
+      id: repo
+      run: echo "image=${REGISTRY}/${IMAGE_NAME@L}/prod" >> $GITHUB_OUTPUT
+      env:
+        REGISTRY: ${{ env.REGISTRY }}
+        IMAGE_NAME: ${{ env.IMAGE_NAME }}
+
     - name: Build and push
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: |
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/prod:latest
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/prod:${{ github.sha }}
-        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/cache:prod
-        cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/cache:prod,mode=max
+          ${{ steps.repo.outputs.image }}:latest
+          ${{ steps.repo.outputs.image }}:${{ github.sha }}
+        cache-from: type=registry,ref=${{ steps.repo.outputs.image }}:cache
+        cache-to: type=registry,ref=${{ steps.repo.outputs.image }}:cache,mode=max
         build-args: |
           ENV_TYPE=PRODUCTION

@@ -1,6 +1,6 @@
 services:
   bot:
-    image: ${IMAGE:-ghcr.io/ArthurKoba/tsutmb-hostel/prod:latest}
+    image: ${IMAGE:-ghcr.io/arthurkoba/tsutmb-hostel/prod:latest}
     env_file:
       - .env
     restart: always
