@@ -1,0 +1,12 @@
+services:
+  bot:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ${TSUTMB_HOSTEL_VOLUME:-tsutmb-hostel-dev-volume}:/app/resources
+
+volumes:
+  tsutmb-hostel-dev-volume:

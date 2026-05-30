@@ -1,0 +1,72 @@
+default:
+  image: ghcr.io/astral-sh/uv:python3.14-alpine
+
+stages:
+  - lint
+  - build
+
+.python_base:
+  before_script:
+    - uv --version
+
+.lint_template:
+  extends: .python_base
+  stage: lint
+  before_script:
+    - !reference [.python_base, before_script]
+    - uv sync
+  script:
+    - uv run ruff check src
+    - uv run ruff format src --check
+
+lint:ruff:dev:
+  extends: .lint_template
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "dev"
+  allow_failure: true
+
+lint:ruff:prod:
+  extends: .lint_template
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+  allow_failure: false
+
+.build_template: &build_base
+  stage: build
+  image: docker:latest
+  variables:
+    DOCKER_BUILDKIT: "1"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker buildx create --use --name builder || true
+
+#build:dev:
+#  <<: *build_base
+#  rules:
+#    - if: $CI_COMMIT_BRANCH == "dev"
+#  script:
+#    - >
+#      docker buildx build
+#      --cache-from type=registry,ref=$CI_REGISTRY_IMAGE/cache:dev
+#      --cache-to type=registry,ref=$CI_REGISTRY_IMAGE/cache:dev,mode=max
+#      --build-arg ENV_TYPE=DEVELOPMENT
+#      -t $CI_REGISTRY_IMAGE/dev:latest
+#      -t $CI_REGISTRY_IMAGE/dev:$CI_COMMIT_SHA
+#      --push
+#      .
+
+build:production:
+  <<: *build_base
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+  script:
+    - >
+      docker buildx build
+      --cache-from type=registry,ref=$CI_REGISTRY_IMAGE/cache:prod
+      --cache-to type=registry,ref=$CI_REGISTRY_IMAGE/cache:prod,mode=max
+      --build-arg ENV_TYPE=PRODUCTION
+      -t $CI_REGISTRY_IMAGE/prod:latest
+      -t $CI_REGISTRY_IMAGE/prod:$CI_COMMIT_SHA
+      --push
+      .

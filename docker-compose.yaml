@@ -1,0 +1,8 @@
+services:
+  bot:
+    image: ${IMAGE:-ghcr.io/ArthurKoba/tsutmb-hostel/prod:latest}
+    env_file:
+      - .env
+    restart: always
+    volumes:
+      - ${TSUTMB_HOSTEL_VOLUME:-./resources}:/app/resources
