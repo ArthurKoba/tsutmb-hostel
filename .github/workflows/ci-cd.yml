@@ -36,6 +36,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint
     if: github.ref_name == 'master'
+    permissions:
+      contents: read
+      packages: write
 
     steps:
     - uses: actions/checkout@v4
@@ -43,7 +46,7 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Login to GHCR
+    - name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY }}
@@ -52,10 +55,9 @@ jobs:
 
     - name: Convert to lowercase
       id: repo
-      run: echo "image=${REGISTRY}/${IMAGE_NAME@L}/prod" >> $GITHUB_OUTPUT
-      env:
-        REGISTRY: ${{ env.REGISTRY }}
-        IMAGE_NAME: ${{ env.IMAGE_NAME }}
+      run: |
+        LOWERCASE_IMAGE="${{ env.REGISTRY }}/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')/prod"
+        echo "image=${LOWERCASE_IMAGE}" >> $GITHUB_OUTPUT
 
     - name: Build and push
       uses: docker/build-push-action@v5
