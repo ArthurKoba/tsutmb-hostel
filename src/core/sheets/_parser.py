@@ -69,5 +69,3 @@ class UserParser:
                 users.append(user)
         logger.info("Инициализировано {} пользователей!", len(users))
         return users
-
-

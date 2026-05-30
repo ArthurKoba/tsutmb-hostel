@@ -12,13 +12,15 @@ if TYPE_CHECKING:
 
 
 class GoogleSheetsApiClient:
-
     """
     Класс для взаимодействия c Google Sheets посредством API Google и библиотеки aiogoogle.
     Создано на основе: https://github.com/omarryhan/aiogoogle/blob/3dc48d7a4a0da4c02b8bb21e82282a7b03a86c55/examples/google_sheets_client.py
     """
 
-    scopes = ("https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive")
+    scopes = (
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    )
 
     def __init__(self, service_account_path: Path, spreadsheet_id: str):
         service_account_creds = get_service_account_creds_with_path(service_account_path)
@@ -44,7 +46,9 @@ class GoogleSheetsApiClient:
 
     async def get_values(self, sheet_range: str) -> list[str | None]:
         """Получить значения по диапазону. Пример диапазонов: 'List!A1' или 'List!A1:A2'"""
-        request = self.sheets_service.values.get(spreadsheetId=self._spreadsheet_id, range=sheet_range)
+        request = self.sheets_service.values.get(
+            spreadsheetId=self._spreadsheet_id, range=sheet_range
+        )
         resp: dict = await self._send_request(request)
         values = []
         if resp.get("values"):
@@ -53,25 +57,32 @@ class GoogleSheetsApiClient:
 
     async def batch_get_values(self, sheet_ranges: list[str]) -> list[list[str]]:
         """Получить значения по группе диапазонов. Пример диапазона: ['List!A1', 'List!B1:B2']"""
-        request = self.sheets_service.values.batchGet(spreadsheetId=self._spreadsheet_id, ranges=sheet_ranges)
+        request = self.sheets_service.values.batchGet(
+            spreadsheetId=self._spreadsheet_id, ranges=sheet_ranges
+        )
         resp: dict = await self._send_request(request)
         return [r.get("values", [[]])[0] for r in resp.get("valueRanges")]
 
-    async def update_values(self, sheet_range: str, values: list[str], range_type: str = "ROWS") -> None:
+    async def update_values(
+        self, sheet_range: str, values: list[str], range_type: str = "ROWS"
+    ) -> None:
         body = {"values": [[value] for value in values], "majorDimension": range_type}
         request = self.sheets_service.values.update(
-            spreadsheetId=self._spreadsheet_id, range=sheet_range,
-            valueInputOption="USER_ENTERED", json=body
+            spreadsheetId=self._spreadsheet_id,
+            range=sheet_range,
+            valueInputOption="USER_ENTERED",
+            json=body,
         )
         await self._send_request(request)
 
     async def batch_update_values(self, sheet_ranges: list[str], values: list[list[str]]) -> None:
         body = {
             "valueInputOption": "USER_ENTERED",
-            "data": [{"range": r, "values": [v]} for r, v in zip(sheet_ranges, values, strict=False)]
+            "data": [
+                {"range": r, "values": [v]} for r, v in zip(sheet_ranges, values, strict=False)
+            ],
         }
-        request = self.sheets_service.values.batchUpdate(spreadsheetId=self._spreadsheet_id, json=body)
+        request = self.sheets_service.values.batchUpdate(
+            spreadsheetId=self._spreadsheet_id, json=body
+        )
         await self._send_request(request)
-
-
-

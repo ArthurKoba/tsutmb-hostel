@@ -9,18 +9,19 @@ if TYPE_CHECKING:
 
     from vkbottle import ABCRule
     from vkbottle.tools.mini_types.bot import MessageMin
+
     LabeledMessageHandler = Callable[..., Callable[[MessageMin], Any]]
 
 
 class Labeler(UserLabeler):
     def __init__(
-            self,
-            conversation_id: int | None,
-            message_view: ABCUserMessageView | None = None,
-            raw_event_view: RawUserEventView | None = None,
-            custom_rules: dict[str, type[ABCRule]] | None = None,
-            auto_rules: list[ABCRule] | None = None,
-            raw_event_auto_rules: list[ABCRule] | None = None,
+        self,
+        conversation_id: int | None,
+        message_view: ABCUserMessageView | None = None,
+        raw_event_view: RawUserEventView | None = None,
+        custom_rules: dict[str, type[ABCRule]] | None = None,
+        auto_rules: list[ABCRule] | None = None,
+        raw_event_auto_rules: list[ABCRule] | None = None,
     ):
         self._conversation_id = conversation_id
         message_view = message_view or UserMessageView()

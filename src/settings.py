@@ -17,8 +17,6 @@ class ApplicationSettings(BaseSettings):
     DATABASE_SHEET_END_RANGE: int = 500
     DATABASE_MOCK_FILENAME: str | None = None
 
-
-
     model_config = SettingsConfigDict(extra="forbid")
 
     def get_service_account_file_path(self) -> str:

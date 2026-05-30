@@ -20,7 +20,7 @@ class GoogleSheetHostel:
     def __init__(self, settings: ApplicationSettings):
         self._api = GoogleSheetsApiClient(
             service_account_path=settings.get_service_account_file_path(),
-            spreadsheet_id=settings.SPREADSHEET_ID
+            spreadsheet_id=settings.SPREADSHEET_ID,
         )
         self._last_update_db: float = 0
 
@@ -50,10 +50,14 @@ class GoogleSheetHostel:
             ]
             rows = await self._api.batch_get_values(ranges)
             if self._mock_database_file_path:
-                logger.debug("Запись базы данных в mock файл {}", self._mock_database_file_path.name)
+                logger.debug(
+                    "Запись базы данных в mock файл {}", self._mock_database_file_path.name
+                )
                 with self._mock_database_file_path.open(mode="w", encoding="utf-8") as file:
                     file.write(dumps(rows, indent=4, ensure_ascii=False))
-            self.users = UserParser.parse_database(rows=rows, start_index=self._database_start_range)
+            self.users = UserParser.parse_database(
+                rows=rows, start_index=self._database_start_range
+            )
         self._last_update_db = time()
 
     def get_user_by_vk_id(self, user_id: int) -> User | None:
@@ -74,7 +78,9 @@ class GoogleSheetHostel:
         ranges = []
         values = []
         for user, status in data:
-            ranges.append(f"{self._database_sheet_name}!{UserRowSection.IN_VK_CONVERSATION.letter}{user.row_index}")
+            ranges.append(
+                f"{self._database_sheet_name}!{UserRowSection.IN_VK_CONVERSATION.letter}{user.row_index}"
+            )
             values.append([str(status).upper()])
         await self._api.batch_update_values(ranges, values)
 
@@ -97,4 +103,3 @@ class GoogleSheetHostel:
             if time() - self._last_update_db < 60 * 5:
                 continue
             await self.update_database()
-

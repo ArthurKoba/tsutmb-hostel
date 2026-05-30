@@ -55,7 +55,10 @@ class ConversationAPI:
             "random_id": get_random_id(),
         }
         logger.debug(
-            "Отправка ответа на сообщение id: {} в чате {}. Сообщение: {}", reply_message_id, peer_id, text
+            "Отправка ответа на сообщение id: {} в чате {}. Сообщение: {}",
+            reply_message_id,
+            peer_id,
+            text,
         )
         return await self._bot.api.messages.send(**data)
 
@@ -76,7 +79,9 @@ class ConversationAPI:
             if self._notification_join_target_offset > 0:
                 self._notification_join_target_offset -= 1
         except BaseException as error:
-            logger.error("Сообщение с id: {} не может быть удаленно. Причина: {}.", message_id, error)
+            logger.error(
+                "Сообщение с id: {} не может быть удаленно. Причина: {}.", message_id, error
+            )
             return
 
     async def kick_user_conversation(self, user_id: int) -> bool:
@@ -142,7 +147,9 @@ class ConversationAPI:
             raise ValueError(msg)
         response_group = response_group.groups[0]
         self.group_id = response_group.id
-        logger.info("Данные группы {} ({}) успешно загружены.", response_group.name, response_group.id)
+        logger.info(
+            "Данные группы {} ({}) успешно загружены.", response_group.name, response_group.id
+        )
         response_conversation = await self._bot.api.messages.get_conversations_by_id(
             peer_ids=[self.conversation_id]
         )
@@ -179,7 +186,10 @@ class ConversationAPI:
     def get_user_ids(self) -> list[int]:
         return [*self.conversation_admins, *self.conversation_users]
 
-    async def get_named_link(self, user_id: int,) -> str:
+    async def get_named_link(
+        self,
+        user_id: int,
+    ) -> str:
         return f"@id{user_id} ({await self.get_full_name_for_user(user_id)})"
 
     async def format_named_links_from_user_ids(self, list_ids: list[int]) -> str:

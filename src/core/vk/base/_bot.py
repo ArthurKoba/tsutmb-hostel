@@ -44,9 +44,9 @@ class BotMessagesPooling(UserPolling):
 
 
 class CustomLoopWrapper(LoopWrapper):
-
     def set_running(self, value: bool):
         self._running = value
+
 
 class BotUserLongPool(Bot):
     def __init__(

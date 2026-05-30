@@ -20,6 +20,7 @@ async def main():
     await vk_manager.run()
     hostel_task.cancel()
 
+
 if __name__ == "__main__":
     try:
         run(main())
