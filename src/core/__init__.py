@@ -1,4 +1,4 @@
-from sheets import GoogleSheetHostel
-from vk import VKManager
+from .sheets import GoogleSheetHostel
+from .vk import VKManager
 
 __all__ = ["GoogleSheetHostel", "VKManager"]
