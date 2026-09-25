@@ -31,7 +31,8 @@ class VKManager:
         self.conversation_id = settings.CONVERSATION_ID
 
         self.bot = BotUserLongPool(
-            token=settings.GROUP_ACCESS_TOKEN, conversation_id=self.conversation_id
+            token=settings.GROUP_ACCESS_TOKEN.get_secret_value(),
+            conversation_id=self.conversation_id,
         )
         self._api = ConversationAPI(settings=settings, bot=self.bot)
 
