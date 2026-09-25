@@ -1,73 +1,41 @@
-name: CI/CD
+name: CI
 
 on:
   push:
-    branches: [ dev, master ]
+    branches: [master, dev, modernize-deployment]
   pull_request:
-    branches: [ dev, master ]
+    branches: [master]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+permissions:
+  contents: read
 
 jobs:
-  lint:
+  quality:
     runs-on: ubuntu-latest
-    continue-on-error: ${{ github.ref_name != 'master' }}
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.14
+      - run: uv sync --locked
+      - run: uv run ruff check src
+      - run: uv run ruff format --check --diff src
+      - run: uv run python -m compileall -q src
+      - run: PYTHONPATH=src uv run python -c "import telemetry"
 
-    - name: Setup uv
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-    - name: Sync dependencies
-      run: uv sync
-
-    - name: Ruff check
-      run: uv run ruff check src
-
-    - name: Ruff format check
-      run: uv run ruff format src --check
-
-  build:
+  docker:
     runs-on: ubuntu-latest
-    needs: lint
-    if: github.ref_name == 'master'
-    permissions:
-      contents: read
-      packages: write
-
+    needs: quality
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Convert to lowercase
-      id: repo
-      run: |
-        LOWERCASE_IMAGE="${{ env.REGISTRY }}/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')/prod"
-        echo "image=${LOWERCASE_IMAGE}" >> $GITHUB_OUTPUT
-
-    - name: Build and push
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: |
-          ${{ steps.repo.outputs.image }}:latest
-          ${{ steps.repo.outputs.image }}:${{ github.sha }}
-        cache-from: type=registry,ref=${{ steps.repo.outputs.image }}:cache
-        cache-to: type=registry,ref=${{ steps.repo.outputs.image }}:cache,mode=max
-        build-args: |
-          ENV_TYPE=PRODUCTION
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: tsutmb-hostel:ci
+          build-args: |
+            ENV_TYPE=PRODUCTION
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
