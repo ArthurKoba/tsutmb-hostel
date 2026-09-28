@@ -18,7 +18,7 @@ async def main() -> None:
         console_enabled=settings.LOG_CONSOLE_ENABLED,
         log_to_file=settings.LOG_FILE_ENABLED,
     )
-    shutdown_telemetry = setup_telemetry(settings)
+    telemetry = setup_telemetry(settings)
     logger.disable("core.sheets._parser")
 
     hostel_task = None
@@ -36,7 +36,7 @@ async def main() -> None:
             hostel_task.cancel()
             with suppress(CancelledError):
                 await hostel_task
-        shutdown_telemetry()
+        telemetry.shutdown()
 
 
 if __name__ == "__main__":
