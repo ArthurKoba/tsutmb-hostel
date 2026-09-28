@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -12,8 +13,6 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.semconv.resource import ResourceAttributes
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from settings import ApplicationSettings
 
 
@@ -36,16 +35,36 @@ def _to_logging_record(message) -> logging.LogRecord:
     )
 
 
-def setup_telemetry(settings: ApplicationSettings) -> Callable[[], None]:
+@dataclass(slots=True)
+class TelemetryRuntime:
+    provider: LoggerProvider | None = None
+    sink_id: int | None = None
+
+    def flush(self, timeout_millis: int = 5000) -> bool:
+        if self.provider is None:
+            return True
+        return self.provider.force_flush(timeout_millis=timeout_millis)
+
+    def shutdown(self) -> None:
+        if self.sink_id is not None:
+            logger.remove(self.sink_id)
+        if self.provider is not None:
+            if not self.provider.force_flush(timeout_millis=5000):
+                logger.error("OpenTelemetry force_flush timed out")
+            self.provider.shutdown()
+
+
+def setup_telemetry(settings: ApplicationSettings) -> TelemetryRuntime:
     if not settings.OTEL_ENABLED:
-        return lambda: None
+        return TelemetryRuntime()
 
     try:
+        endpoint = settings.get_otel_logs_endpoint()
         provider = LoggerProvider(
             resource=Resource.create({ResourceAttributes.SERVICE_NAME: settings.OTEL_SERVICE_NAME})
         )
         exporter = OTLPLogExporter(
-            endpoint=settings.get_otel_logs_endpoint(),
+            endpoint=endpoint,
             headers=settings.get_otel_headers(),
         )
         provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
@@ -61,12 +80,16 @@ def setup_telemetry(settings: ApplicationSettings) -> Callable[[], None]:
         )
     except Exception:
         logger.exception("OpenTelemetry initialization failed; continuing without exporter")
-        return lambda: None
+        return TelemetryRuntime()
 
-    logger.info("OpenTelemetry log export enabled | service={}", settings.OTEL_SERVICE_NAME)
+    runtime = TelemetryRuntime(provider=provider, sink_id=sink_id)
+    logger.info(
+        "OpenTelemetry log export enabled | service={} endpoint={}",
+        settings.OTEL_SERVICE_NAME,
+        endpoint,
+    )
+    logger.info("OpenTelemetry startup probe")
+    if not runtime.flush():
+        logger.error("OpenTelemetry startup probe flush timed out")
 
-    def shutdown() -> None:
-        logger.remove(sink_id)
-        provider.shutdown()
-
-    return shutdown
+    return runtime
