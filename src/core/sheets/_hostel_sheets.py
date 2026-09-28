@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from asyncio import sleep
 from json import dumps, loads
 from time import time
@@ -19,7 +21,7 @@ if TYPE_CHECKING:
 class GoogleSheetHostel:
     def __init__(self, settings: ApplicationSettings):
         self._api = GoogleSheetsApiClient(
-            service_account_path=settings.get_service_account_file_path(),
+            service_account_creds=settings.get_service_account_credentials(),
             spreadsheet_id=settings.SPREADSHEET_ID,
         )
         self._last_update_db: float = 0
@@ -27,18 +29,14 @@ class GoogleSheetHostel:
         self._database_sheet_name = settings.DATABASE_SHEET_NAME
         self._database_start_range = settings.DATABASE_SHEET_START_RANGE
         self._database_end_range = settings.DATABASE_SHEET_END_RANGE
-
         self._mock_database_file_path: Path | None = settings.get_mock_database_path()
-
         self.users: list[User] = []
 
-    async def update_database(self):
-
+    async def update_database(self) -> None:
         if self._mock_database_file_path and self._mock_database_file_path.exists():
             logger.warning("Загрузка базы из mock файла {}.", self._mock_database_file_path)
             with self._mock_database_file_path.open(encoding="utf-8") as file:
                 rows = loads(file.read())
-
             self.users = UserParser.parse_database(
                 rows=rows, start_index=self._database_start_range
             )
@@ -67,14 +65,9 @@ class GoogleSheetHostel:
         return None
 
     def get_all_vk_ids(self) -> list[str]:
-        links = []
-        for user in self.users:
-            if not user.vk_id:
-                continue
-            links.append(user.vk_id)
-        return links
+        return [user.vk_id for user in self.users if user.vk_id]
 
-    async def write_statuses_in_vk_conversation(self, data: list[tuple[User, bool]]):
+    async def write_statuses_in_vk_conversation(self, data: list[tuple[User, bool]]) -> None:
         ranges = []
         values = []
         for user, status in data:
@@ -97,7 +90,7 @@ class GoogleSheetHostel:
         logger.info("Запуск сервиса Google таблиц")
         await self._api.connect()
         await self.update_database()
-        logger.info("База загружена: {} пользоватлеей", len(self.users))
+        logger.info("База загружена: {} пользователей", len(self.users))
         while True:
             await sleep(1)
             if time() - self._last_update_db < 60 * 5:

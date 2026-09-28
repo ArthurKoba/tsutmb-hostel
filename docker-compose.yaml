@@ -1,8 +1,12 @@
 services:
   bot:
-    image: ${IMAGE:-ghcr.io/arthurkoba/tsutmb-hostel/prod:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ENV_TYPE: ${ENV_TYPE:-PRODUCTION}
     env_file:
       - .env
-    restart: always
+    restart: unless-stopped
     volumes:
       - ${TSUTMB_HOSTEL_VOLUME:-./resources}:/app/resources
