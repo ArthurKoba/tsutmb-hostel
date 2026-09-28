@@ -22,6 +22,7 @@ Production-конфигурация передаётся через environment 
 
 - `service.name=tsutmb-hostel`;
 - `service.version` из `OTEL_SERVICE_VERSION`;
+- `service.instance.id` из `OTEL_SERVICE_INSTANCE_ID`, либо из hostname контейнера;
 - `deployment.environment.name` из `OTEL_ENVIRONMENT`.
 
 Настройки:
@@ -33,7 +34,9 @@ Production-конфигурация передаётся через environment 
 
 К базовому endpoint автоматически добавляются `/v1/logs` и `/v1/traces`.
 
-Трассируются значимые операции приложения: startup VK/Google Sheets, загрузка и обновление базы, Google Sheets read/write, команды пользователей и изменения состава беседы. Тексты сообщений, токены и содержимое таблицы в span attributes не записываются.
+Трассируются значимые операции приложения: startup VK/Google Sheets, загрузка и обновление базы, Google Sheets read/write, команды пользователей и изменения состава беседы. Для внешних VK и Google Sheets вызовов создаются отдельные client spans, поэтому в trace видно, где именно тратится время на сетевой API.
+
+Автоматическая трассировка всего HTTP-клиента намеренно не используется: приложение не должно случайно экспортировать query-параметры, токены или содержимое запросов. Тексты сообщений, токены и содержимое таблицы в span attributes не записываются.
 
 Логи, созданные внутри активного span, экспортируются с его trace context. Файлового логирования в приложении нет. `LOG_CONSOLE_ENABLED` управляет только аварийным/операционным stderr для Docker/Coolify.
 

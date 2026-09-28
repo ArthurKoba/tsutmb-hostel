@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from telemetry import trace_span
+from telemetry import client_span, trace_span
 
 from ._dialogs_conversation import Dialogs
 from ._utils import get_random_id
@@ -15,6 +15,11 @@ if TYPE_CHECKING:
 
 
 dialog = Dialogs()
+
+_VK_RPC_ATTRIBUTES = {
+    "rpc.system": "vk",
+    "server.address": "api.vk.com",
+}
 
 
 class ConversationAPI:
@@ -38,16 +43,28 @@ class ConversationAPI:
             return None
         if user_id in self._cache_full_names:
             return self._cache_full_names.get(user_id)
-        user = (await self._bot.api.users.get([user_id]))[0]
+        with client_span(
+            "vk.api.users.get",
+            {**_VK_RPC_ATTRIBUTES, "rpc.method": "users.get"},
+        ):
+            user = (await self._bot.api.users.get([user_id]))[0]
         full_name = f"{user.first_name} {user.last_name}"
-        logger.debug("Полное имя для пользователя с id: {} загружено и помещено в cache.", user_id)
+        logger.debug("Полное имя пользователя загружено и помещено в cache.")
         self._cache_full_names.update({user_id: full_name})
         return full_name
 
     async def send_message_to_conversation(self, text: str) -> int:
         data = {"peer_id": self.conversation_id, "message": text, "random_id": get_random_id()}
-        logger.debug("Отправка сообщения в беседу. Сообщение: {}", text)
-        return await self._bot.api.messages.send(**data)
+        logger.debug("Отправка сообщения в беседу.")
+        with client_span(
+            "vk.api.messages.send",
+            {
+                **_VK_RPC_ATTRIBUTES,
+                "rpc.method": "messages.send",
+                "vk.message.scope": "conversation",
+            },
+        ):
+            return await self._bot.api.messages.send(**data)
 
     async def send_reply_message(self, text: str, peer_id: int, reply_message_id: int) -> int:
         data = {
@@ -56,45 +73,55 @@ class ConversationAPI:
             "reply_to": reply_message_id,
             "random_id": get_random_id(),
         }
-        logger.debug(
-            "Отправка ответа на сообщение id: {} в чате {}. Сообщение: {}",
-            reply_message_id,
-            peer_id,
-            text,
-        )
-        return await self._bot.api.messages.send(**data)
+        logger.debug("Отправка ответа на сообщение.")
+        with client_span(
+            "vk.api.messages.send",
+            {**_VK_RPC_ATTRIBUTES, "rpc.method": "messages.send", "vk.message.scope": "reply"},
+        ):
+            return await self._bot.api.messages.send(**data)
 
     async def send_reply_message_conversation(self, text: str, reply_message_id: int) -> int:
         return await self.send_reply_message(text, self.conversation_id, reply_message_id)
 
     async def send_private_message(self, text: str, peer_id):
         data = {"peer_id": peer_id, "message": text, "random_id": get_random_id()}
-        logger.debug("Отправка сообщения пользователю с id {}. Сообщение: {}", peer_id, text)
-        return await self._bot.api.messages.send(**data)
+        logger.debug("Отправка приватного сообщения.")
+        with client_span(
+            "vk.api.messages.send",
+            {**_VK_RPC_ATTRIBUTES, "rpc.method": "messages.send", "vk.message.scope": "private"},
+        ):
+            return await self._bot.api.messages.send(**data)
 
     async def delete_message(self, message_id):
         request_data = {"message_ids": message_id, "delete_for_all": 1}
         try:
-            await self._bot.api.request("messages.delete", request_data)
-            logger.debug("Сообщение с номером id: {}, было успешно удаленно.", message_id)
+            with client_span(
+                "vk.api.messages.delete",
+                {**_VK_RPC_ATTRIBUTES, "rpc.method": "messages.delete"},
+            ):
+                await self._bot.api.request("messages.delete", request_data)
+            logger.debug("Сообщение успешно удалено.")
             if self._notification_join_target_offset > 0:
                 self._notification_join_target_offset -= 1
         except BaseException as error:
-            logger.error(
-                "Сообщение с id: {} не может быть удаленно. Причина: {}.", message_id, error
-            )
+            logger.error("Сообщение не может быть удалено. Причина: {}.", error)
             return
 
     async def kick_user_conversation(self, user_id: int) -> bool:
         if self.is_admin(user_id):
-            logger.warning(
-                "Пользователь с id: {} не может быть исключен из беседы, так как он админ!", user_id
-            )
+            logger.warning("Администратор не может быть исключён из беседы.")
             return False
         chat_id = self.conversation_id - 2000000000
-        result = await self._bot.api.messages.remove_chat_user(member_id=user_id, chat_id=chat_id)
+        with client_span(
+            "vk.api.messages.remove_chat_user",
+            {**_VK_RPC_ATTRIBUTES, "rpc.method": "messages.removeChatUser"},
+        ):
+            result = await self._bot.api.messages.remove_chat_user(
+                member_id=user_id,
+                chat_id=chat_id,
+            )
         if result == 1:
-            logger.debug("Пользователь с id: {} исключен. Результат: {}", user_id, result)
+            logger.debug("Пользователь исключён из беседы.")
             return True
         return None
 
@@ -112,18 +139,28 @@ class ConversationAPI:
         await self.send_message_to_conversation(text)
 
     async def read_all_messages_from_conversation(self):
-        await self._bot.api.messages.mark_as_read(
-            peer_id=self.conversation_id, mark_conversation_as_read=True
-        )
+        with client_span(
+            "vk.api.messages.mark_as_read",
+            {**_VK_RPC_ATTRIBUTES, "rpc.method": "messages.markAsRead"},
+        ):
+            await self._bot.api.messages.mark_as_read(
+                peer_id=self.conversation_id,
+                mark_conversation_as_read=True,
+            )
 
     def increment_messages_counter(self):
         self._notification_join_target_offset += 1
 
     async def load_conversation(self) -> None:
         with trace_span("vk.conversation.load") as span:
-            response = await self._bot.api.messages.get_conversation_members(
-                peer_id=self.conversation_id, group_id=self.group_id
-            )
+            with client_span(
+                "vk.api.messages.get_conversation_members",
+                {**_VK_RPC_ATTRIBUTES, "rpc.method": "messages.getConversationMembers"},
+            ):
+                response = await self._bot.api.messages.get_conversation_members(
+                    peer_id=self.conversation_id,
+                    group_id=self.group_id,
+                )
             bots = set()
             admins = set()
             users = set()
@@ -148,18 +185,28 @@ class ConversationAPI:
 
     async def load_group(self) -> None:
         with trace_span("vk.group.load"):
-            response_group = await self._bot.api.groups.get_by_id()
+            with client_span(
+                "vk.api.groups.get_by_id",
+                {**_VK_RPC_ATTRIBUTES, "rpc.method": "groups.getById"},
+            ):
+                response_group = await self._bot.api.groups.get_by_id()
             if not response_group.groups or len(response_group.groups) > 1:
                 msg = "Ошибка загрузки группы"
                 raise ValueError(msg)
             response_group = response_group.groups[0]
             self.group_id = response_group.id
             logger.info(
-                "Данные группы {} ({}) успешно загружены.", response_group.name, response_group.id
+                "Данные группы {} ({}) успешно загружены.",
+                response_group.name,
+                response_group.id,
             )
-            response_conversation = await self._bot.api.messages.get_conversations_by_id(
-                peer_ids=[self.conversation_id]
-            )
+            with client_span(
+                "vk.api.messages.get_conversations_by_id",
+                {**_VK_RPC_ATTRIBUTES, "rpc.method": "messages.getConversationsById"},
+            ):
+                response_conversation = await self._bot.api.messages.get_conversations_by_id(
+                    peer_ids=[self.conversation_id]
+                )
             await self.load_conversation()
 
             chat_title = ""
@@ -209,7 +256,8 @@ class ConversationAPI:
     async def send_named_links_from_user_ids(self, peer_id: int, list_ids: list[int]):
         if not list_ids:
             return await self.send_private_message(
-                peer_id=peer_id, text=dialog.commands.not_user_are_request
+                peer_id=peer_id,
+                text=dialog.commands.not_user_are_request,
             )
         msg = await self.format_named_links_from_user_ids(list_ids)
         if msg:

@@ -16,6 +16,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.semconv.resource import ResourceAttributes
+from opentelemetry.trace import SpanKind
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -47,8 +48,19 @@ def _to_logging_record(message) -> logging.LogRecord:
 
 
 @contextmanager
-def trace_span(name: str, attributes: dict[str, Any] | None = None) -> Iterator[trace.Span]:
-    with _tracer.start_as_current_span(name, attributes=attributes) as span:
+def trace_span(
+    name: str,
+    attributes: dict[str, Any] | None = None,
+    *,
+    kind: SpanKind = SpanKind.INTERNAL,
+) -> Iterator[trace.Span]:
+    with _tracer.start_as_current_span(name, attributes=attributes, kind=kind) as span:
+        yield span
+
+
+@contextmanager
+def client_span(name: str, attributes: dict[str, Any] | None = None) -> Iterator[trace.Span]:
+    with trace_span(name, attributes, kind=SpanKind.CLIENT) as span:
         yield span
 
 
@@ -83,6 +95,7 @@ def _build_resource(settings: ApplicationSettings) -> Resource:
         {
             ResourceAttributes.SERVICE_NAME: settings.OTEL_SERVICE_NAME,
             ResourceAttributes.SERVICE_VERSION: settings.OTEL_SERVICE_VERSION,
+            "service.instance.id": settings.get_otel_service_instance_id(),
             "deployment.environment.name": settings.OTEL_ENVIRONMENT,
         }
     )
@@ -132,11 +145,11 @@ def setup_telemetry(settings: ApplicationSettings) -> TelemetryRuntime:
         return TelemetryRuntime()
 
     logger.info(
-        "OpenTelemetry enabled | service={} environment={} logs={} traces={}",
+        "OpenTelemetry enabled | service={} version={} instance={} environment={}",
         settings.OTEL_SERVICE_NAME,
+        settings.OTEL_SERVICE_VERSION,
+        settings.get_otel_service_instance_id(),
         settings.OTEL_ENVIRONMENT,
-        settings.get_otel_logs_endpoint(),
-        settings.get_otel_traces_endpoint(),
     )
     return TelemetryRuntime(
         logger_provider=logger_provider,

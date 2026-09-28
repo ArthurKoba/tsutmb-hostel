@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from json import JSONDecodeError, loads
+from os import getenv
 from typing import TYPE_CHECKING
 
 from pydantic import SecretStr, model_validator
@@ -31,6 +32,7 @@ class ApplicationSettings(BaseSettings):
     OTEL_ENABLED: bool = False
     OTEL_SERVICE_NAME: str = "tsutmb-hostel"
     OTEL_SERVICE_VERSION: str = "0.1.0"
+    OTEL_SERVICE_INSTANCE_ID: str | None = None
     OTEL_ENVIRONMENT: str = "production"
     OTEL_EXPORTER_OTLP_ENDPOINT: str | None = None
     OTEL_EXPORTER_OTLP_HEADERS: SecretStr | None = None
@@ -68,6 +70,9 @@ class ApplicationSettings(BaseSettings):
 
     def get_mock_database_path(self) -> Path | None:
         return BASE_PATH / self.DATABASE_MOCK_FILENAME if self.DATABASE_MOCK_FILENAME else None
+
+    def get_otel_service_instance_id(self) -> str:
+        return self.OTEL_SERVICE_INSTANCE_ID or getenv("HOSTNAME") or "unknown"
 
     def _get_otel_signal_endpoint(self, signal: str) -> str:
         if self.OTEL_EXPORTER_OTLP_ENDPOINT is None:
