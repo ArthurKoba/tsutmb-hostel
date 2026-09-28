@@ -27,10 +27,11 @@ class ApplicationSettings(BaseSettings):
     DATABASE_MOCK_FILENAME: str | None = None
 
     LOG_CONSOLE_ENABLED: bool = True
-    LOG_FILE_ENABLED: bool = False
 
     OTEL_ENABLED: bool = False
     OTEL_SERVICE_NAME: str = "tsutmb-hostel"
+    OTEL_SERVICE_VERSION: str = "0.1.0"
+    OTEL_ENVIRONMENT: str = "production"
     OTEL_EXPORTER_OTLP_ENDPOINT: str | None = None
     OTEL_EXPORTER_OTLP_HEADERS: SecretStr | None = None
     OTEL_LOG_LEVEL: str = "INFO"
@@ -42,7 +43,7 @@ class ApplicationSettings(BaseSettings):
         if self.OTEL_ENABLED and not self.OTEL_EXPORTER_OTLP_ENDPOINT:
             msg = "OTEL_EXPORTER_OTLP_ENDPOINT is required when OTEL_ENABLED=true"
             raise ValueError(msg)
-        if not (self.LOG_CONSOLE_ENABLED or self.LOG_FILE_ENABLED or self.OTEL_ENABLED):
+        if not (self.LOG_CONSOLE_ENABLED or self.OTEL_ENABLED):
             msg = "At least one logging sink must be enabled"
             raise ValueError(msg)
         return self
@@ -68,12 +69,23 @@ class ApplicationSettings(BaseSettings):
     def get_mock_database_path(self) -> Path | None:
         return BASE_PATH / self.DATABASE_MOCK_FILENAME if self.DATABASE_MOCK_FILENAME else None
 
-    def get_otel_logs_endpoint(self) -> str:
+    def _get_otel_signal_endpoint(self, signal: str) -> str:
         if self.OTEL_EXPORTER_OTLP_ENDPOINT is None:
             msg = "OTEL_EXPORTER_OTLP_ENDPOINT is not configured"
             raise ValueError(msg)
         endpoint = self.OTEL_EXPORTER_OTLP_ENDPOINT.rstrip("/")
-        return endpoint if endpoint.endswith("/v1/logs") else f"{endpoint}/v1/logs"
+        suffix = f"/v1/{signal}"
+        if endpoint.endswith(suffix):
+            return endpoint
+        if endpoint.endswith(("/v1/logs", "/v1/traces")):
+            endpoint = endpoint.rsplit("/v1/", maxsplit=1)[0]
+        return f"{endpoint}{suffix}"
+
+    def get_otel_logs_endpoint(self) -> str:
+        return self._get_otel_signal_endpoint("logs")
+
+    def get_otel_traces_endpoint(self) -> str:
+        return self._get_otel_signal_endpoint("traces")
 
     def get_otel_headers(self) -> dict[str, str] | None:
         if self.OTEL_EXPORTER_OTLP_HEADERS is None:

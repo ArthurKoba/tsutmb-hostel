@@ -12,6 +12,4 @@ BASE_PATH = (
     else Path(f"/app/{BASE_DIR_NAME}")
 )
 
-LOGS_DIR = BASE_PATH / "logs"
-
-__all__ = ["BASE_PATH", "LOGS_DIR"]
+__all__ = ["BASE_PATH"]

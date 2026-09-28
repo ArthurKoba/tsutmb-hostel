@@ -16,7 +16,7 @@ dependencies = [
 [tool.ruff]
 line-length = 100
 target-version = "py314"
-exclude = [".git", ".venv", "__pycache__", "migrations", "logs", "tests", "htmlcov", ".pytest_cache"]
+exclude = [".git", ".venv", "__pycache__", "migrations", "tests", "htmlcov", ".pytest_cache"]
 
 [tool.ruff.lint]
 select = [

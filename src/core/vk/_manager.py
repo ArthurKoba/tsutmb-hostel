@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 from loguru import logger
 from vkbottle_types.events.enums import UserEventType
 
+from telemetry import trace_span
+
 from ._api import ConversationAPI
 from ._dialogs_conversation import Dialogs
 from .base import BotUserLongPool
@@ -27,7 +29,6 @@ class VKManager:
         settings: ApplicationSettings,
         hostel_sheets: GoogleSheetHostel,
     ):
-
         self.conversation_id = settings.CONVERSATION_ID
 
         self.bot = BotUserLongPool(
@@ -76,35 +77,39 @@ class VKManager:
         return None
 
     async def _process_conversation_command(self, author_id: int, message: MessageMin):
-        cmd = message.text
-        if not self._api.is_admin(author_id):
-            full_name = await self._api.get_full_name_for_user(user_id=message.from_id)
-            message_text = dialog.permission.command_denied.format(
-                user_id=message.from_id, full_name=full_name
-            )
-            await self._api.send_reply_message_conversation_and_sleep_and_delete(
-                message_text, message.id, 10
-            )
-            await self._api.delete_message(message.id)
-        elif cmd == "/help":
-            await self._api.send_message_and_sleep_and_delete(dialog.commands.help, 10)
-        elif cmd == "/global_mute":
-            self._global_mute = not self._global_mute
-            state = dialog.commands.lock if self._global_mute else dialog.commands.unlock
-            message_text = dialog.commands.global_mute.format(state=state)
-            await self._api.send_message_to_conversation(text=message_text)
-        elif cmd == "/send_join_extended_message":
-            await self._api.send_message_to_conversation(text=dialog.transit.extended_join)
-        elif cmd == "/del":
-            if not message.reply_message:
-                return await self._api.send_reply_message_conversation_and_sleep_and_delete(
-                    dialog.commands.not_reply_message, message.id, 10
+        cmd = message.text.split(maxsplit=1)[0]
+        with trace_span(
+            "vk.command.process",
+            {"vk.command": cmd, "vk.command.scope": "conversation"},
+        ):
+            if not self._api.is_admin(author_id):
+                full_name = await self._api.get_full_name_for_user(user_id=message.from_id)
+                message_text = dialog.permission.command_denied.format(
+                    user_id=message.from_id, full_name=full_name
                 )
-            await self._api.delete_message(message.reply_message.id)
-        else:
-            await self._api.send_reply_message_conversation_and_sleep_and_delete(
-                dialog.commands.unknown, message.id, 5
-            )
+                await self._api.send_reply_message_conversation_and_sleep_and_delete(
+                    message_text, message.id, 10
+                )
+                await self._api.delete_message(message.id)
+            elif cmd == "/help":
+                await self._api.send_message_and_sleep_and_delete(dialog.commands.help, 10)
+            elif cmd == "/global_mute":
+                self._global_mute = not self._global_mute
+                state = dialog.commands.lock if self._global_mute else dialog.commands.unlock
+                message_text = dialog.commands.global_mute.format(state=state)
+                await self._api.send_message_to_conversation(text=message_text)
+            elif cmd == "/send_join_extended_message":
+                await self._api.send_message_to_conversation(text=dialog.transit.extended_join)
+            elif cmd == "/del":
+                if not message.reply_message:
+                    return await self._api.send_reply_message_conversation_and_sleep_and_delete(
+                        dialog.commands.not_reply_message, message.id, 10
+                    )
+                await self._api.delete_message(message.reply_message.id)
+            else:
+                await self._api.send_reply_message_conversation_and_sleep_and_delete(
+                    dialog.commands.unknown, message.id, 5
+                )
         return None
 
     async def _process_user_transit(self, event: RawUserEvent) -> None:
@@ -113,17 +118,19 @@ class VKManager:
         peer_id = event.object[2]
         if peer_id != self.conversation_id:
             return
-        if edit_id == 6:
-            logger.debug("Пользователь с id: {} присоединился к беседе!", user_id)
-            await self._api.send_join_user_conversation_notification(user_id=user_id)
-        elif edit_id == 7:
-            logger.debug("Пользователь с id: {} вышел из беседы!", user_id)
-            await self._api.send_left_user_conversation_notification(user_id=user_id)
-            if user_id in self.kicked_list:
-                self.kicked_list.remove(user_id)
-            else:
-                await self._api.kick_user_conversation(user_id=user_id)
-                self.kicked_list.add(user_id)
+        action = "join" if edit_id == 6 else "leave" if edit_id == 7 else "other"
+        with trace_span("vk.conversation.transit", {"vk.transit.action": action}):
+            if edit_id == 6:
+                logger.debug("Пользователь с id: {} присоединился к беседе!", user_id)
+                await self._api.send_join_user_conversation_notification(user_id=user_id)
+            elif edit_id == 7:
+                logger.debug("Пользователь с id: {} вышел из беседы!", user_id)
+                await self._api.send_left_user_conversation_notification(user_id=user_id)
+                if user_id in self.kicked_list:
+                    self.kicked_list.remove(user_id)
+                else:
+                    await self._api.kick_user_conversation(user_id=user_id)
+                    self.kicked_list.add(user_id)
 
     async def _process_private_command(self, message: MessageMin):
         await self.bot.api.messages.mark_as_read(
@@ -135,29 +142,32 @@ class VKManager:
                 peer_id=message.peer_id, text=dialog.commands.start
             )
 
-        cmd = message.text
+        cmd = message.text.split(maxsplit=1)[0]
+        with trace_span(
+            "vk.command.process",
+            {"vk.command": cmd, "vk.command.scope": "private"},
+        ):
+            if cmd == "/start":
+                return await self._api.send_private_message(
+                    peer_id=message.peer_id, text=dialog.commands.start
+                )
+            if not self._api.is_admin(author_id):
+                return await self._api.send_private_message(
+                    peer_id=message.peer_id, text=dialog.permission.private_cmd_denied
+                )
 
-        if cmd == "/start":
-            return await self._api.send_private_message(
-                peer_id=message.peer_id, text=dialog.commands.start
-            )
-        if not self._api.is_admin(author_id):
-            return await self._api.send_private_message(
-                peer_id=message.peer_id, text=dialog.permission.private_cmd_denied
-            )
-
-        if cmd == "/help":
-            await self._api.send_private_message(
-                peer_id=message.peer_id, text=dialog.commands.private_help
-            )
-        elif cmd == "/show_need_kick":
-            await self._show_users_which_are_need_kick(message)
-        elif cmd == "/show_need_invite":
-            await self._show_users_which_are_need_invite(message)
-        elif cmd == "/kick_users_from_conversation":
-            await self._kick_users_which_are_not_in_db()
-        elif cmd == "/update_statuses":
-            await self._update_statuses_db_in_conversation(message)
+            if cmd == "/help":
+                await self._api.send_private_message(
+                    peer_id=message.peer_id, text=dialog.commands.private_help
+                )
+            elif cmd == "/show_need_kick":
+                await self._show_users_which_are_need_kick(message)
+            elif cmd == "/show_need_invite":
+                await self._show_users_which_are_need_invite(message)
+            elif cmd == "/kick_users_from_conversation":
+                await self._kick_users_which_are_not_in_db()
+            elif cmd == "/update_statuses":
+                await self._update_statuses_db_in_conversation(message)
 
         return None
 
@@ -227,8 +237,9 @@ class VKManager:
 
     async def run(self) -> None:
         logger.info("Запуск vk менеджера.")
-        await self._api.load_group()
-        await self._api.read_all_messages_from_conversation()
+        with trace_span("vk.manager.startup"):
+            await self._api.load_group()
+            await self._api.read_all_messages_from_conversation()
         checker_task = create_task(self._loop_checker())
         await self.bot.run_polling()
         await checker_task

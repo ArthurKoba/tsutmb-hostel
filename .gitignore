@@ -4,7 +4,6 @@
 !.env.example
 resources/
 service_account*.json
-*.log
 
 # Python
 __pycache__/

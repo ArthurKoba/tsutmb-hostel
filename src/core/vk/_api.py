@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from telemetry import trace_span
+
 from ._dialogs_conversation import Dialogs
 from ._utils import get_random_id
 
@@ -71,7 +73,6 @@ class ConversationAPI:
         return await self._bot.api.messages.send(**data)
 
     async def delete_message(self, message_id):
-        # todo Добавить возможность удаления сообщения администраторов!
         request_data = {"message_ids": message_id, "delete_for_all": 1}
         try:
             await self._bot.api.request("messages.delete", request_data)
@@ -119,54 +120,60 @@ class ConversationAPI:
         self._notification_join_target_offset += 1
 
     async def load_conversation(self) -> None:
-        response = await self._bot.api.messages.get_conversation_members(
-            peer_id=self.conversation_id, group_id=self.group_id
-        )
-        bots = set()
-        admins = set()
-        users = set()
-        for member in response.items:
-            if member.member_id < 0:
-                bots.add(member.member_id)
-            elif member.is_admin:
-                admins.add(member.member_id)
-            else:
-                users.add(member.member_id)
-        self.conversation_bots = bots
-        self.conversation_users = users
-        self.conversation_admins = admins
+        with trace_span("vk.conversation.load") as span:
+            response = await self._bot.api.messages.get_conversation_members(
+                peer_id=self.conversation_id, group_id=self.group_id
+            )
+            bots = set()
+            admins = set()
+            users = set()
+            for member in response.items:
+                if member.member_id < 0:
+                    bots.add(member.member_id)
+                elif member.is_admin:
+                    admins.add(member.member_id)
+                else:
+                    users.add(member.member_id)
+            self.conversation_bots = bots
+            self.conversation_users = users
+            self.conversation_admins = admins
 
-        for profile in response.profiles:
-            full_name = f"{profile.first_name} {profile.last_name}"
-            self._cache_full_names.update({profile.id: full_name})
+            for profile in response.profiles:
+                full_name = f"{profile.first_name} {profile.last_name}"
+                self._cache_full_names.update({profile.id: full_name})
+
+            span.set_attribute("vk.conversation.admin_count", len(admins))
+            span.set_attribute("vk.conversation.bot_count", len(bots))
+            span.set_attribute("vk.conversation.user_count", len(users))
 
     async def load_group(self) -> None:
-        response_group = await self._bot.api.groups.get_by_id()
-        if not response_group.groups or len(response_group.groups) > 1:
-            msg = "Ошибка загрузки группы"
-            raise ValueError(msg)
-        response_group = response_group.groups[0]
-        self.group_id = response_group.id
-        logger.info(
-            "Данные группы {} ({}) успешно загружены.", response_group.name, response_group.id
-        )
-        response_conversation = await self._bot.api.messages.get_conversations_by_id(
-            peer_ids=[self.conversation_id]
-        )
-        await self.load_conversation()
+        with trace_span("vk.group.load"):
+            response_group = await self._bot.api.groups.get_by_id()
+            if not response_group.groups or len(response_group.groups) > 1:
+                msg = "Ошибка загрузки группы"
+                raise ValueError(msg)
+            response_group = response_group.groups[0]
+            self.group_id = response_group.id
+            logger.info(
+                "Данные группы {} ({}) успешно загружены.", response_group.name, response_group.id
+            )
+            response_conversation = await self._bot.api.messages.get_conversations_by_id(
+                peer_ids=[self.conversation_id]
+            )
+            await self.load_conversation()
 
-        chat_title = ""
-        settings = response_conversation.items[0].chat_settings
-        if settings and settings.title:
-            chat_title = settings.title
-        logger.info(
-            "Беседа {} ({}) загружена! Количество админов: {}, ботов: {}, участников: {}.",
-            chat_title,
-            self.conversation_id,
-            len(self.conversation_admins),
-            len(self.conversation_bots),
-            len(self.conversation_users),
-        )
+            chat_title = ""
+            settings = response_conversation.items[0].chat_settings
+            if settings and settings.title:
+                chat_title = settings.title
+            logger.info(
+                "Беседа {} ({}) загружена! Количество админов: {}, ботов: {}, участников: {}.",
+                chat_title,
+                self.conversation_id,
+                len(self.conversation_admins),
+                len(self.conversation_bots),
+                len(self.conversation_users),
+            )
 
     async def send_message_and_sleep_and_delete(self, message_text: str, sleep_sec: int):
         message_id = await self.send_message_to_conversation(message_text)

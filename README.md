@@ -16,19 +16,26 @@ Production-конфигурация передаётся через environment 
 
 Остальные значения и defaults перечислены в `.env.example`.
 
-## Логи и OpenTelemetry
+## Observability
 
-По умолчанию приложение пишет логи в stderr (`LOG_CONSOLE_ENABLED=true`), а файловое логирование выключено.
+Основной канал наблюдаемости — OpenTelemetry OTLP/HTTP. Приложение экспортирует логи и traces с единым resource:
 
-Экспорт логов через OpenTelemetry подготовлен, но выключен по умолчанию. Для OTLP/HTTP collector (в том числе SigNoz) используются:
+- `service.name=tsutmb-hostel`;
+- `service.version` из `OTEL_SERVICE_VERSION`;
+- `deployment.environment.name` из `OTEL_ENVIRONMENT`.
+
+Настройки:
 
 - `OTEL_ENABLED=true`;
-- `OTEL_SERVICE_NAME=tsutmb-hostel`;
-- `OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4318`;
+- `OTEL_EXPORTER_OTLP_ENDPOINT=https://collector.example.com`;
 - `OTEL_EXPORTER_OTLP_HEADERS` — необязательные `key=value` пары через запятую;
 - `OTEL_LOG_LEVEL=INFO`.
 
-К endpoint автоматически добавляется `/v1/logs`, если suffix ещё не указан. Ошибка инициализации telemetry не останавливает основной бот. После проверки OTLP-приёма можно установить `LOG_CONSOLE_ENABLED=false`, чтобы не дублировать application logs в Docker stdout/stderr.
+К базовому endpoint автоматически добавляются `/v1/logs` и `/v1/traces`.
+
+Трассируются значимые операции приложения: startup VK/Google Sheets, загрузка и обновление базы, Google Sheets read/write, команды пользователей и изменения состава беседы. Тексты сообщений, токены и содержимое таблицы в span attributes не записываются.
+
+Логи, созданные внутри активного span, экспортируются с его trace context. Файлового логирования в приложении нет. `LOG_CONSOLE_ENABLED` управляет только аварийным/операционным stderr для Docker/Coolify.
 
 ## Локальный запуск
 
@@ -36,7 +43,7 @@ Production-конфигурация передаётся через environment 
 2. При использовании file-based Google credentials положить `service_account.json` в `resources/`.
 3. Запустить `docker compose up --build`.
 
-`resources/`, `.env`, service-account credentials и runtime logs исключены из Git и Docker build context.
+`resources/`, `.env` и service-account credentials исключены из Git и Docker build context.
 
 ## Deployment
 

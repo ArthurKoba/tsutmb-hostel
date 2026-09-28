@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 from aiogoogle import Aiogoogle
 from aiogoogle.auth.creds import ServiceAccountCreds
 
+from telemetry import trace_span
+
 if TYPE_CHECKING:
     from aiogoogle.resource import Resource
 
@@ -24,8 +26,9 @@ class GoogleSheetsApiClient:
         self._sheets_service: Resource | None = None
 
     async def connect(self) -> None:
-        async with self._aiogoogle as aiogoogle:
-            self._sheets_service = (await aiogoogle.discover("sheets", "v4")).spreadsheets
+        with trace_span("google.sheets.connect"):
+            async with self._aiogoogle as aiogoogle:
+                self._sheets_service = (await aiogoogle.discover("sheets", "v4")).spreadsheets
 
     async def _send_request(self, request):
         async with self._aiogoogle as aiogoogle:
@@ -39,41 +42,54 @@ class GoogleSheetsApiClient:
         return self._sheets_service
 
     async def get_values(self, sheet_range: str) -> list[str | None]:
-        request = self.sheets_service.values.get(
-            spreadsheetId=self._spreadsheet_id, range=sheet_range
-        )
-        resp: dict = await self._send_request(request)
-        values = resp.get("values", [])
-        return values[-1] if values else []
+        with trace_span("google.sheets.get", {"sheets.range_count": 1}):
+            request = self.sheets_service.values.get(
+                spreadsheetId=self._spreadsheet_id, range=sheet_range
+            )
+            resp: dict = await self._send_request(request)
+            values = resp.get("values", [])
+            return values[-1] if values else []
 
     async def batch_get_values(self, sheet_ranges: list[str]) -> list[list[str]]:
-        request = self.sheets_service.values.batchGet(
-            spreadsheetId=self._spreadsheet_id, ranges=sheet_ranges
-        )
-        resp: dict = await self._send_request(request)
-        return [item.get("values", [[]])[0] for item in resp.get("valueRanges", [])]
+        with trace_span(
+            "google.sheets.batch_get",
+            {"sheets.range_count": len(sheet_ranges)},
+        ):
+            request = self.sheets_service.values.batchGet(
+                spreadsheetId=self._spreadsheet_id, ranges=sheet_ranges
+            )
+            resp: dict = await self._send_request(request)
+            return [item.get("values", [[]])[0] for item in resp.get("valueRanges", [])]
 
     async def update_values(
         self, sheet_range: str, values: list[str], range_type: str = "ROWS"
     ) -> None:
-        body = {"values": [[value] for value in values], "majorDimension": range_type}
-        request = self.sheets_service.values.update(
-            spreadsheetId=self._spreadsheet_id,
-            range=sheet_range,
-            valueInputOption="USER_ENTERED",
-            json=body,
-        )
-        await self._send_request(request)
+        with trace_span(
+            "google.sheets.update",
+            {"sheets.range_count": 1, "sheets.value_count": len(values)},
+        ):
+            body = {"values": [[value] for value in values], "majorDimension": range_type}
+            request = self.sheets_service.values.update(
+                spreadsheetId=self._spreadsheet_id,
+                range=sheet_range,
+                valueInputOption="USER_ENTERED",
+                json=body,
+            )
+            await self._send_request(request)
 
     async def batch_update_values(self, sheet_ranges: list[str], values: list[list[str]]) -> None:
-        body = {
-            "valueInputOption": "USER_ENTERED",
-            "data": [
-                {"range": sheet_range, "values": [value]}
-                for sheet_range, value in zip(sheet_ranges, values, strict=False)
-            ],
-        }
-        request = self.sheets_service.values.batchUpdate(
-            spreadsheetId=self._spreadsheet_id, json=body
-        )
-        await self._send_request(request)
+        with trace_span(
+            "google.sheets.batch_update",
+            {"sheets.range_count": len(sheet_ranges)},
+        ):
+            body = {
+                "valueInputOption": "USER_ENTERED",
+                "data": [
+                    {"range": sheet_range, "values": [value]}
+                    for sheet_range, value in zip(sheet_ranges, values, strict=False)
+                ],
+            }
+            request = self.sheets_service.values.batchUpdate(
+                spreadsheetId=self._spreadsheet_id, json=body
+            )
+            await self._send_request(request)

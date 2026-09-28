@@ -3,7 +3,6 @@ from contextlib import suppress
 
 from loguru import logger
 
-from constants import LOGS_DIR
 from core import GoogleSheetHostel, VKManager
 from settings import ApplicationSettings
 from telemetry import setup_telemetry
@@ -14,9 +13,7 @@ async def main() -> None:
     settings = ApplicationSettings.load()
     setup_logging(
         level="DEBUG",
-        logs_base_path=LOGS_DIR,
         console_enabled=settings.LOG_CONSOLE_ENABLED,
-        log_to_file=settings.LOG_FILE_ENABLED,
     )
     telemetry = setup_telemetry(settings)
     logger.disable("core.sheets._parser")

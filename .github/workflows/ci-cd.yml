@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, dev, modernize-deployment]
+    branches: [master, dev]
   pull_request:
     branches: [master]
 
